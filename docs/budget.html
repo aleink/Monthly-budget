@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Budget Status</title>
+  <link rel="stylesheet" href="assets/style.css"/>
+</head>
+<body>
+  <header>
+    <a href="index.html" style="color: #fff; text-decoration: none;">← Back</a>
+    <h1>Budget Status</h1>
+  </header>
+
+  <div class="card" id="budgetCard">
+    <!-- We'll populate this via JS -->
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadBudget();
+    });
+
+    async function loadBudget() {
+      try {
+        const res = await fetch(`${API_BASE}/budget`);
+        if(!res.ok) {
+          throw new Error("Error fetching budget");
+        }
+        const data = await res.json();
+        const card = document.getElementById("budgetCard");
+        
+        if(data.message) {
+          card.innerHTML = `<p>${data.message}</p>`;
+          return;
+        }
+
+        let html = `<h2>Cycle #${data.cycle_id}</h2>
+                    <p>Start Date: ${data.start_date}</p>
+                    <ul>`;
+        data.envelopes.forEach(env => {
+          html += `<li style="margin-bottom:0.5rem;">
+                     <strong>${env.category}</strong><br>
+                     $${env.remaining} / $${env.initial} 
+                     <div class="progress">
+                       <div class="progress-bar" style="width:${env.percentage_left}"></div>
+                     </div>
+                   </li>`;
+        });
+        html += `</ul>`;
+        card.innerHTML = html;
+      } catch(err) {
+        console.error(err);
+        alert(err.message);
+      }
+    }
+  </script>
+</body>
+</html>

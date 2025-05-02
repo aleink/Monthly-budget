@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Categories</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header>
+    <a href="index.html" style="color: #fff; text-decoration: none;">← Back</a>
+    <h1>Categories</h1>
+  </header>
+
+  <div class="card">
+    <h2>Add Category</h2>
+    <label for="catName">Name</label>
+    <input type="text" id="catName" placeholder="e.g. Rent" />
+    
+    <label for="catBudget">Monthly Budget ($)</label>
+    <input type="number" step="0.01" id="catBudget" placeholder="e.g. 200.00" />
+
+    <button class="btn" id="catAddBtn">Add</button>
+  </div>
+
+  <div class="card">
+    <h2>Existing Categories</h2>
+    <ul id="catList"></ul>
+  </div>
+
+  <script>
+    // ==============================
+    // Change this to your deployed URL if needed:
+    // e.g. const API_BASE = "https://yourdomain/api";
+    // For local dev:
+    const API_BASE = "http://127.0.0.1:8000";
+
+    // On page load:
+    document.addEventListener("DOMContentLoaded", () => {
+      loadCategories();
+
+      document.getElementById("catAddBtn").addEventListener("click", () => {
+        const name = document.getElementById("catName").value.trim();
+        const monthlyBudget = document.getElementById("catBudget").value.trim();
+        if (!name || !monthlyBudget) {
+          alert("Please fill in all fields.");
+          return;
+        }
+        createCategory(name, monthlyBudget);
+      });
+    });
+
+    async function loadCategories() {
+      try {
+        const res = await fetch(`${API_BASE}/categories`);
+        if(!res.ok) {
+          throw new Error("Failed to load categories.");
+        }
+        const data = await res.json();
+        const ul = document.getElementById("catList");
+        ul.innerHTML = "";
+        data.forEach(cat => {
+          const li = document.createElement("li");
+          li.textContent = `${cat.name} - $${cat.monthly_budget}`;
+          
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "Delete";
+          delBtn.style.marginLeft = "1rem";
+          delBtn.onclick = () => deleteCategory(cat.id);
+          
+          li.appendChild(delBtn);
+          ul.appendChild(li);
+        });
+      } catch (err) {
+        console.error(err);
+        alert("Error loading categories.");
+      }
+    }
+
+    async function createCategory(name, monthlyBudget) {
+      try {
+        const res = await fetch(`${API_BASE}/categories/`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ name, monthly_budget: monthlyBudget })
+        });
+        if(!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt);
+        }
+        // success
+        document.getElementById("catName").value = "";
+        document.getElementById("catBudget").value = "";
+        loadCategories();
+      } catch(err) {
+        console.error(err);
+        alert("Error creating category. " + err.message);
+      }
+    }
+
+    async function deleteCategory(id) {
+      if(!confirm("Are you sure you want to delete?")) return;
+      try {
+        const res = await fetch(`${API_BASE}/categories/${id}`, { method: "DELETE" });
+        if(!res.ok) {
+          throw new Error("Failed to delete category.");
+        }
+        loadCategories();
+      } catch(err) {
+        console.error(err);
+        alert("Error deleting category.");
+      }
+    }
+  </script>
+</body>
+</html>
