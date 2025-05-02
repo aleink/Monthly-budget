@@ -21,10 +21,10 @@
     <input type="checkbox" id="catIsRent" />
 
     <label for="catBiweekly">Biweekly Budget ($)</label>
-    <input type="number" step="0.01" id="catBiweekly" placeholder="e.g. 100.00" />
+    <input type="number" step="0.01" id="catBiweekly" placeholder="500.00" />
 
     <label for="catMonthly">Monthly Budget ($)</label>
-    <input type="number" step="0.01" id="catMonthly" placeholder="e.g. 1200.00" />
+    <input type="number" step="0.01" id="catMonthly" placeholder="1000.00" />
 
     <button class="btn" id="addCatBtn">Add Category</button>
   </div>
@@ -50,8 +50,17 @@
         const ul = document.getElementById("catList");
         ul.innerHTML = "";
         data.forEach(cat => {
+          // Format something like "Market: Monthly $1000 | Bi-Weekly $500"
+          let display = `${cat.name}: `;
+          if (cat.monthly_budget !== "0.00") {
+            display += `Monthly $${cat.monthly_budget} `;
+          }
+          if (cat.biweekly_budget !== "0.00") {
+            display += `| Bi-Weekly $${cat.biweekly_budget}`;
+          }
+
           const li = document.createElement("li");
-          li.textContent = `${cat.name} | Rent=${cat.is_rent} | Biweekly=$${cat.biweekly_budget} | Monthly=$${cat.monthly_budget} | Envelope=$${cat.current_envelope}`;
+          li.textContent = display;
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
@@ -78,7 +87,6 @@
         return;
       }
 
-      // Build the body for CategoryCreate
       const body = {
         name,
         is_rent,
@@ -96,7 +104,6 @@
           const txt = await res.text();
           throw new Error(txt);
         }
-        // success
         document.getElementById("catName").value = "";
         document.getElementById("catIsRent").checked = false;
         document.getElementById("catBiweekly").value = "";

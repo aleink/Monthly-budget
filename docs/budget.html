@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Budget Status</title>
   <link rel="stylesheet" href="assets/style.css"/>
+  <style>
+    /* Example styling for a progress container and bar */
+    .progress-container {
+      background-color: #e9ecef;
+      border-radius: 0.25rem;
+      height: 20px;
+      width: 100%;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+    .progress-bar {
+      background-color: #28a745; /* green */
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -12,12 +28,17 @@
     <h1>Budget Status</h1>
   </header>
 
-  <div class="card" id="budgetCard">
-    <!-- We'll fill this dynamically -->
+  <div class="card">
+    <h2>Available Cash</h2>
+    <p id="availableCash">$0.00</p>
+    <button class="btn" onclick="loadBudget()">Refresh</button>
   </div>
+
+  <div class="card" id="budgetCard"></div>
 
   <script>
     const API_BASE = "http://127.0.0.1:8000";
+
     document.addEventListener("DOMContentLoaded", loadBudget);
 
     async function loadBudget() {
@@ -26,19 +47,50 @@
         if (!res.ok) throw new Error("Failed to fetch budget");
         const data = await res.json();
 
-        const card = document.getElementById("budgetCard");
         if (data.message) {
-          card.innerHTML = `<p>${data.message}</p>`;
+          document.getElementById("availableCash").textContent = data.message;
           return;
         }
 
-        let html = `<h2>Available Cash: $${data.available_cash}</h2>`;
-        html += `<h3>Categories:</h3><ul>`;
+        document.getElementById("availableCash").textContent = `$${data.available_cash}`;
+
+        const container = document.getElementById("budgetCard");
+        container.innerHTML = `<h2>Categories</h2>`;
+        let html = "<ul>";
         data.categories.forEach(cat => {
-          html += `<li>${cat.name} (Rent=${cat.is_rent}) | Envelope=$${cat.current_envelope} | (BW=$${cat.biweekly_budget}, MO=$${cat.monthly_budget})</li>`;
+          // Decide the "max" budget
+          let maxBudget = cat.is_rent ? parseFloat(cat.monthly_budget) : parseFloat(cat.biweekly_budget);
+          if (maxBudget <= 0) maxBudget = 1; // Avoid division by 0
+
+          const current = parseFloat(cat.current_envelope);
+          const rawPct = (current / maxBudget) * 100;
+          const pct = Math.max(0, Math.min(100, rawPct)); // clamp to [0..100]
+
+          // Format something like "$-350.00 left of $500.00 (some %)"
+          // or if current < 0, you might show negative leftover, up to you
+          const leftoverStr = current.toFixed(2);
+          const maxStr = maxBudget.toFixed(2);
+
+          let line = `<strong>${cat.name}</strong>: $${leftoverStr} left of $${maxStr} `;
+          let percentLine = `(${rawPct.toFixed(1)}%)`;
+
+          // We'll build a progress bar
+          let barHTML = `
+            <div class="progress-container">
+              <div class="progress-bar" style="width:${pct}%;"></div>
+            </div>
+          `;
+
+          html += `
+            <li style="margin-bottom:1rem;">
+              ${line} ${percentLine}
+              ${barHTML}
+            </li>
+          `;
         });
-        html += `</ul>`;
-        card.innerHTML = html;
+        html += "</ul>";
+        container.innerHTML += html;
+
       } catch(err) {
         console.error(err);
         alert("Error loading budget: " + err.message);
