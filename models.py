@@ -1,49 +1,47 @@
-from datetime import datetime, date
-from typing import Optional, List
+# models.py
+from typing import Optional
 from decimal import Decimal
+from datetime import datetime
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, DECIMAL, Boolean
+import enum
 
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, DECIMAL
+class TxType(str, enum.Enum):
+    paycheck = "paycheck"
+    atm = "atm"
+    expense = "expense"
+    rent_expense = "rent_expense"
 
-# --- Category DB Model ---
+class Cashflow(SQLModel, table=True):
+    """
+    Holds the available cash that's not allocated to any envelope.
+    """
+    id: Optional[int] = Field(default=1, primary_key=True)
+    balance: Decimal = Field(sa_column=Column(DECIMAL(10,2)), default=Decimal("0.00"))
+
 class Category(SQLModel, table=True):
+    """
+    For non-rent categories, 'biweekly_budget' is how much each paycheck
+    sets aside. For rent, we store 'monthly_budget' and is_rent=True.
+    'current_envelope' is how much is currently allocated to that category.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    monthly_budget: Decimal = Field(sa_column=Column(DECIMAL(10, 2)))
+    is_rent: bool = Field(default=False, sa_column=Column(Boolean))
 
-    envelopes: List["Envelope"] = Relationship(back_populates="category")
+    # For non-rent, this is used. For rent, we use monthly_budget below.
+    biweekly_budget: Decimal = Field(sa_column=Column(DECIMAL(10,2)), default=Decimal("0.00"))
 
-# --- Cycle DB Model ---
-class Cycle(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    pay_amount: Decimal = Field(sa_column=Column(DECIMAL(10, 2)), default=Decimal("0.00"))
-    start_date: date  # "table=True" means this is stored as a real DATE
+    # For rent, this is used. For non-rent, it can remain 0.
+    monthly_budget: Decimal = Field(sa_column=Column(DECIMAL(10,2)), default=Decimal("0.00"))
 
-    envelopes: List["Envelope"] = Relationship(back_populates="cycle")
-    transactions: List["Transaction"] = Relationship(back_populates="cycle")
+    # This is how much money is allocated right now (envelope).
+    current_envelope: Decimal = Field(sa_column=Column(DECIMAL(10,2)), default=Decimal("0.00"))
 
-# --- Envelope DB Model ---
-class Envelope(SQLModel, table=True):
-    cycle_id: Optional[int] = Field(default=None, foreign_key="cycle.id", primary_key=True)
-    category_id: Optional[int] = Field(default=None, foreign_key="category.id", primary_key=True)
-    initial: Decimal = Field(sa_column=Column(DECIMAL(10, 2)), default=Decimal("0.00"))
-    current: Decimal = Field(sa_column=Column(DECIMAL(10, 2)), default=Decimal("0.00"))
-
-    cycle: Optional[Cycle] = Relationship(back_populates="envelopes")
-    category: Optional[Category] = Relationship(back_populates="envelopes")
-
-# --- Transaction DB Model ---
 class Transaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    cycle_id: int = Field(foreign_key="cycle.id")
-    category_id: int = Field(foreign_key="category.id")
-    amount: Decimal = Field(sa_column=Column(DECIMAL(10, 2)), default=Decimal("0.00"))
+    amount: Decimal = Field(sa_column=Column(DECIMAL(10,2)), default=Decimal("0.00"))
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    type: TxType
 
-    cycle: Optional[Cycle] = Relationship(back_populates="transactions")
-
-# --- Alert DB Model ---
-class Alert(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    message: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    category_id: Optional[int] = Field(default=None, foreign_key="category.id")

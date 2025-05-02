@@ -1,46 +1,20 @@
+<!-- docs/index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Alerts</title>
+  <title>Budget Bot</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Alerts</h1>
+    <h1>Budget Bot (Refactored)</h1>
   </header>
-
   <div class="card">
-    <h2>All Alerts</h2>
-    <ul id="alertList"></ul>
+    <a class="btn" href="categories.html">Categories</a>
+    <a class="btn" href="budget.html">Budget Status</a>
+    <a class="btn" href="transactions.html">Transactions</a>
   </div>
-
-  <script>
-    const API_BASE = "http://127.0.0.1:8000";
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadAlerts();
-    });
-
-    async function loadAlerts() {
-      try {
-        const res = await fetch(`${API_BASE}/alerts`);
-        if(!res.ok) throw new Error("Failed to load alerts");
-        const data = await res.json();
-        const ul = document.getElementById("alertList");
-        ul.innerHTML = "";
-        data.forEach(alert => {
-          const li = document.createElement("li");
-          li.textContent = `[${alert.created_at}] ${alert.message}`;
-          ul.appendChild(li);
-        });
-      } catch(err) {
-        console.error(err);
-        alert("Error loading alerts.");
-      }
-    }
-  </script>
 </body>
 </html>

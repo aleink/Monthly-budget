@@ -1,7 +1,8 @@
+# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_db_and_tables
-from routers import categories, cycles, transactions, budget, alerts
+from routers import categories, transactions, budget
 
 app = FastAPI()
 
@@ -20,10 +21,8 @@ def on_startup():
 
 @app.get("/ping")
 def ping():
-    return {"status": "ok", "message": "Budget Bot is alive!"}
+    return {"status":"ok", "message":"Refactored Budget Bot with new leftover logic"}
 
 app.include_router(categories.router)
-app.include_router(cycles.router)
 app.include_router(transactions.router)
 app.include_router(budget.router)
-app.include_router(alerts.router)

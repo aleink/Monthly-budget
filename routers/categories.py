@@ -1,6 +1,6 @@
+# routers/categories.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-
 from database import get_session
 from models import Category
 from schemas import CategoryCreate, CategoryRead
@@ -9,33 +9,32 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 
 @router.post("/", response_model=CategoryRead)
 def create_category(data: CategoryCreate, session: Session = Depends(get_session)):
-    # optional check for duplicate name
     stmt = select(Category).where(Category.name == data.name)
     existing = session.exec(stmt).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Category name already exists.")
-
-    new_cat = Category(
+        raise HTTPException(status_code=400, detail="Category name exists.")
+    cat = Category(
         name=data.name,
-        monthly_budget=data.monthly_budget
+        is_rent=data.is_rent,
+        biweekly_budget=data.biweekly_budget,
+        monthly_budget=data.monthly_budget,
+        current_envelope=0
     )
-    session.add(new_cat)
+    session.add(cat)
     session.commit()
-    session.refresh(new_cat)
-    return new_cat
+    session.refresh(cat)
+    return cat
 
 @router.get("/", response_model=list[CategoryRead])
-def get_categories(session: Session = Depends(get_session)):
-    stmt = select(Category)
-    results = session.exec(stmt).all()
-    # Because we have `orm_mode=True`, we can return `results` directly
-    return results
+def list_categories(session: Session = Depends(get_session)):
+    cats = session.exec(select(Category)).all()
+    return cats
 
-@router.delete("/{category_id}")
-def delete_category(category_id: int, session: Session = Depends(get_session)):
-    cat = session.get(Category, category_id)
+@router.delete("/{cat_id}")
+def delete_category(cat_id: int, session: Session = Depends(get_session)):
+    cat = session.get(Category, cat_id)
     if not cat:
-        raise HTTPException(status_code=404, detail="Category not found.")
+        raise HTTPException(status_code=404, detail="Not found.")
     session.delete(cat)
     session.commit()
-    return {"ok": True, "message": "Category deleted."}
+    return {"ok": True}

@@ -1,16 +1,18 @@
 # database.py
 from sqlmodel import SQLModel, create_engine, Session
-from pathlib import Path
+from models import Cashflow
 
-# Create a local SQLite URL at 'budget.db'
-sqlite_file_name = "budget.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
-
-engine = create_engine(sqlite_url, echo=False)
+engine = create_engine("sqlite:///budget.db", echo=False)
 
 def create_db_and_tables():
-    from models import Category, Cycle, Envelope, Transaction, Alert
     SQLModel.metadata.create_all(engine)
+    # Ensure there's a row for Cashflow
+    with Session(engine) as session:
+        cf = session.get(Cashflow, 1)
+        if not cf:
+            cf = Cashflow(balance=0)
+            session.add(cf)
+            session.commit()
 
 def get_session():
     with Session(engine) as session:
