@@ -2,58 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Budget Status</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color: #fff; text-decoration: none;">← Back</a>
+    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
     <h1>Budget Status</h1>
   </header>
 
   <div class="card" id="budgetCard">
-    <!-- We'll populate this via JS -->
+    <!-- We'll fill this dynamically -->
   </div>
 
   <script>
     const API_BASE = "http://127.0.0.1:8000";
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadBudget();
-    });
+    document.addEventListener("DOMContentLoaded", loadBudget);
 
     async function loadBudget() {
       try {
-        const res = await fetch(`${API_BASE}/budget`);
-        if(!res.ok) {
-          throw new Error("Error fetching budget");
-        }
+        const res = await fetch(`${API_BASE}/budget/`);
+        if (!res.ok) throw new Error("Failed to fetch budget");
         const data = await res.json();
+
         const card = document.getElementById("budgetCard");
-        
-        if(data.message) {
+        if (data.message) {
           card.innerHTML = `<p>${data.message}</p>`;
           return;
         }
 
-        let html = `<h2>Cycle #${data.cycle_id}</h2>
-                    <p>Start Date: ${data.start_date}</p>
-                    <ul>`;
-        data.envelopes.forEach(env => {
-          html += `<li style="margin-bottom:0.5rem;">
-                     <strong>${env.category}</strong><br>
-                     $${env.remaining} / $${env.initial} 
-                     <div class="progress">
-                       <div class="progress-bar" style="width:${env.percentage_left}"></div>
-                     </div>
-                   </li>`;
+        let html = `<h2>Available Cash: $${data.available_cash}</h2>`;
+        html += `<h3>Categories:</h3><ul>`;
+        data.categories.forEach(cat => {
+          html += `<li>${cat.name} (Rent=${cat.is_rent}) | Envelope=$${cat.current_envelope} | (BW=$${cat.biweekly_budget}, MO=$${cat.monthly_budget})</li>`;
         });
         html += `</ul>`;
         card.innerHTML = html;
       } catch(err) {
         console.error(err);
-        alert(err.message);
+        alert("Error loading budget: " + err.message);
       }
     }
   </script>

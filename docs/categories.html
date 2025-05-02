@@ -1,26 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Categories</title>
-  <link rel="stylesheet" href="assets/style.css" />
+  <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color: #fff; text-decoration: none;">← Back</a>
+    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
     <h1>Categories</h1>
   </header>
 
   <div class="card">
-    <h2>Add Category</h2>
+    <h2>Add a Category</h2>
     <label for="catName">Name</label>
-    <input type="text" id="catName" placeholder="e.g. Rent" />
-    
-    <label for="catBudget">Monthly Budget ($)</label>
-    <input type="number" step="0.01" id="catBudget" placeholder="e.g. 200.00" />
+    <input type="text" id="catName" placeholder="e.g. Groceries"/>
 
-    <button class="btn" id="catAddBtn">Add</button>
+    <label for="catIsRent">Is Rent?</label>
+    <input type="checkbox" id="catIsRent" />
+
+    <label for="catBiweekly">Biweekly Budget ($)</label>
+    <input type="number" step="0.01" id="catBiweekly" placeholder="e.g. 100.00" />
+
+    <label for="catMonthly">Monthly Budget ($)</label>
+    <input type="number" step="0.01" id="catMonthly" placeholder="e.g. 1200.00" />
+
+    <button class="btn" id="addCatBtn">Add Category</button>
   </div>
 
   <div class="card">
@@ -29,81 +35,85 @@
   </div>
 
   <script>
-    // ==============================
-    // Change this to your deployed URL if needed:
-    // e.g. const API_BASE = "https://yourdomain/api";
-    // For local dev:
     const API_BASE = "http://127.0.0.1:8000";
 
-    // On page load:
     document.addEventListener("DOMContentLoaded", () => {
       loadCategories();
-
-      document.getElementById("catAddBtn").addEventListener("click", () => {
-        const name = document.getElementById("catName").value.trim();
-        const monthlyBudget = document.getElementById("catBudget").value.trim();
-        if (!name || !monthlyBudget) {
-          alert("Please fill in all fields.");
-          return;
-        }
-        createCategory(name, monthlyBudget);
-      });
+      document.getElementById("addCatBtn").addEventListener("click", createCategory);
     });
 
     async function loadCategories() {
       try {
         const res = await fetch(`${API_BASE}/categories`);
-        if(!res.ok) {
-          throw new Error("Failed to load categories.");
-        }
+        if (!res.ok) throw new Error("Failed to load categories");
         const data = await res.json();
         const ul = document.getElementById("catList");
         ul.innerHTML = "";
         data.forEach(cat => {
           const li = document.createElement("li");
-          li.textContent = `${cat.name} - $${cat.monthly_budget}`;
-          
+          li.textContent = `${cat.name} | Rent=${cat.is_rent} | Biweekly=$${cat.biweekly_budget} | Monthly=$${cat.monthly_budget} | Envelope=$${cat.current_envelope}`;
+
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.style.marginLeft = "1rem";
           delBtn.onclick = () => deleteCategory(cat.id);
-          
+
           li.appendChild(delBtn);
           ul.appendChild(li);
         });
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        alert("Error loading categories.");
+        alert("Error loading categories");
       }
     }
 
-    async function createCategory(name, monthlyBudget) {
+    async function createCategory() {
+      const name = document.getElementById("catName").value.trim();
+      const is_rent = document.getElementById("catIsRent").checked;
+      const biweeklyStr = document.getElementById("catBiweekly").value.trim() || "0.00";
+      const monthlyStr = document.getElementById("catMonthly").value.trim() || "0.00";
+
+      if (!name) {
+        alert("Please enter a category name.");
+        return;
+      }
+
+      // Build the body for CategoryCreate
+      const body = {
+        name,
+        is_rent,
+        biweekly_budget: biweeklyStr,
+        monthly_budget: monthlyStr
+      };
+
       try {
         const res = await fetch(`${API_BASE}/categories/`, {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ name, monthly_budget: monthlyBudget })
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(body)
         });
-        if(!res.ok) {
+        if (!res.ok) {
           const txt = await res.text();
           throw new Error(txt);
         }
         // success
         document.getElementById("catName").value = "";
-        document.getElementById("catBudget").value = "";
+        document.getElementById("catIsRent").checked = false;
+        document.getElementById("catBiweekly").value = "";
+        document.getElementById("catMonthly").value = "";
         loadCategories();
       } catch(err) {
         console.error(err);
-        alert("Error creating category. " + err.message);
+        alert("Error creating category: " + err.message);
       }
     }
 
     async function deleteCategory(id) {
-      if(!confirm("Are you sure you want to delete?")) return;
+      if (!confirm("Delete this category?")) return;
       try {
         const res = await fetch(`${API_BASE}/categories/${id}`, { method: "DELETE" });
-        if(!res.ok) {
-          throw new Error("Failed to delete category.");
+        if (!res.ok) {
+          throw new Error("Failed to delete");
         }
         loadCategories();
       } catch(err) {

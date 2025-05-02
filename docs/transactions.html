@@ -1,38 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Transactions</title>
-  <link rel="stylesheet" href="assets/style.css" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Expenses</title>
+  <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
     <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Transactions</h1>
+    <h1>Expenses</h1>
   </header>
 
   <div class="card">
-    <h2>Create Transaction</h2>
+    <h2>Record Expense</h2>
     <label for="txnType">Type</label>
     <select id="txnType">
-      <option value="paycheck">Paycheck</option>
-      <option value="atm">ATM</option>
       <option value="expense">Expense</option>
       <option value="rent_expense">Rent Expense</option>
     </select>
 
     <label for="txnAmount">Amount ($)</label>
-    <input type="number" step="0.01" id="txnAmount" placeholder="e.g. 100.00" />
+    <input type="number" step="0.01" id="txnAmount" placeholder="e.g. 50.00" />
 
-    <div id="categorySection" style="display:none;">
+    <div>
       <label for="txnCategory">Category</label>
       <select id="txnCategory">
-        <!-- We'll load categories from the API here -->
+        <!-- We'll load categories from the API -->
       </select>
     </div>
 
-    <button class="btn" id="txnAddBtn">Create Transaction</button>
+    <button class="btn" id="txnAddBtn">Create Expense</button>
   </div>
 
   <div class="card">
@@ -44,39 +42,17 @@
     const API_BASE = "http://127.0.0.1:8000";
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Initially load all categories (for the dropdown) and transactions
       loadCategories();
       loadTransactions();
-
-      // Show/hide category dropdown based on transaction type
-      const txnTypeSelect = document.getElementById("txnType");
-      txnTypeSelect.addEventListener("change", toggleCategoryVisibility);
-
-      // Also call it once to set default
-      toggleCategoryVisibility();
-
-      // Button handler
-      document.getElementById("txnAddBtn").addEventListener("click", createTransaction);
+      document.getElementById("txnAddBtn").addEventListener("click", createExpense);
     });
-
-    function toggleCategoryVisibility() {
-      const txnType = document.getElementById("txnType").value;
-      const categorySection = document.getElementById("categorySection");
-      // We only need a category if type is 'expense' or 'rent_expense'
-      if (txnType === "expense" || txnType === "rent_expense") {
-        categorySection.style.display = "block";
-      } else {
-        categorySection.style.display = "none";
-      }
-    }
 
     async function loadCategories() {
       try {
         const res = await fetch(`${API_BASE}/categories`);
-        if (!res.ok) {
-          throw new Error("Failed to load categories");
-        }
+        if (!res.ok) throw new Error("Could not load categories");
         const cats = await res.json();
+
         const sel = document.getElementById("txnCategory");
         sel.innerHTML = "";
         cats.forEach(cat => {
@@ -85,62 +61,56 @@
           opt.textContent = cat.name;
           sel.appendChild(opt);
         });
-      } catch (err) {
+      } catch(err) {
         console.error(err);
       }
     }
 
-    async function createTransaction() {
+    async function createExpense() {
       const txnType = document.getElementById("txnType").value;
       const amount = document.getElementById("txnAmount").value.trim();
-      let category_id = null;
+      const category_id = document.getElementById("txnCategory").value;
 
       if (!amount) {
-        alert("Please enter an amount");
+        alert("Please enter an amount.");
         return;
       }
-
-      if (txnType === "expense" || txnType === "rent_expense") {
-        category_id = document.getElementById("txnCategory").value;
-        if (!category_id) {
-          alert("Please select a category");
-          return;
-        }
+      if (!category_id) {
+        alert("Select a category.");
+        return;
       }
 
       const body = { type: txnType, amount, category_id };
       try {
         const res = await fetch(`${API_BASE}/transactions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(body)
         });
-        if (!res.ok) {
+        if(!res.ok) {
           const txt = await res.text();
           throw new Error(txt);
         }
-        // Clear amount and reload
+        // success
         document.getElementById("txnAmount").value = "";
         loadTransactions();
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        alert("Error creating transaction: " + err.message);
+        alert("Error creating expense: " + err.message);
       }
     }
 
     async function loadTransactions() {
       try {
         const res = await fetch(`${API_BASE}/transactions`);
-        if (!res.ok) {
-          throw new Error("Failed to load transactions");
-        }
+        if(!res.ok) throw new Error("Could not load transactions");
         const data = await res.json();
         const ul = document.getElementById("txnList");
         ul.innerHTML = "";
         data.forEach(txn => {
           const li = document.createElement("li");
-          const ts = txn.timestamp.split("T").join(" ").split(".")[0]; // rough parse
-          li.textContent = `#${txn.id} [${txn.type}] $${txn.amount}, cat=${txn.category_id || "none"} @ ${ts}`;
+          const ts = txn.timestamp.split("T").join(" ").split(".")[0];
+          li.textContent = `#${txn.id} [${txn.type}] $${txn.amount}, cat=${txn.category_id||"null"}, time=${ts}`;
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
@@ -150,22 +120,23 @@
           li.appendChild(delBtn);
           ul.appendChild(li);
         });
-      } catch (err) {
+      } catch(err) {
         console.error(err);
+        alert("Error loading transactions");
       }
     }
 
     async function deleteTransaction(id) {
-      if (!confirm("Are you sure you want to delete this transaction?")) return;
+      if (!confirm("Delete this transaction?")) return;
       try {
         const res = await fetch(`${API_BASE}/transactions/${id}`, { method: "DELETE" });
-        if (!res.ok) {
-          throw new Error("Failed to delete transaction");
+        if(!res.ok) {
+          throw new Error("Delete failed");
         }
         loadTransactions();
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        alert("Error deleting transaction: " + err.message);
+        alert("Error deleting transaction.");
       }
     }
   </script>

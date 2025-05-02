@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Deposits</title>
+  <link rel="stylesheet" href="assets/style.css"/>
+</head>
+<body>
+  <header>
+    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
+    <h1>Deposits</h1>
+  </header>
+
+  <div class="card">
+    <h2>Current Balance</h2>
+    <p id="availableBalance">$0.00</p>
+    <button class="btn" onclick="loadBalance()">Refresh</button>
+  </div>
+
+  <div class="card">
+    <h2>Make a Deposit</h2>
+    <label for="depType">Type</label>
+    <select id="depType">
+      <option value="paycheck">Paycheck</option>
+      <option value="atm">ATM</option>
+    </select>
+
+    <label for="depAmount">Amount ($)</label>
+    <input type="number" step="0.01" id="depAmount" placeholder="e.g. 500.00" />
+
+    <button class="btn" id="addDepositBtn">Deposit</button>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadBalance();
+      document.getElementById("addDepositBtn").addEventListener("click", addDeposit);
+    });
+
+    async function loadBalance() {
+      try {
+        const res = await fetch(`${API_BASE}/budget/`);
+        if (!res.ok) throw new Error("Failed to get budget");
+        const data = await res.json();
+        const balanceElem = document.getElementById("availableBalance");
+        if (data.available_cash) {
+          balanceElem.textContent = `$${data.available_cash}`;
+        } else {
+          balanceElem.textContent = "No data";
+        }
+      } catch(err) {
+        console.error(err);
+        alert("Error loading balance: " + err.message);
+      }
+    }
+
+    async function addDeposit() {
+      const depType = document.getElementById("depType").value;
+      const amount = document.getElementById("depAmount").value.trim();
+
+      if (!amount) {
+        alert("Enter an amount");
+        return;
+      }
+
+      // We'll create a transaction with type=paycheck or atm
+      const body = {
+        type: depType,
+        amount
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/transactions/`, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt);
+        }
+        // success
+        document.getElementById("depAmount").value = "";
+        loadBalance();
+      } catch(err) {
+        console.error(err);
+        alert("Error creating deposit: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
