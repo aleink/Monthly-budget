@@ -1,15 +1,21 @@
 from datetime import datetime, date
 from typing import Optional, List
+from decimal import Decimal
 
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, DECIMAL
 
 # ------------------------------------------------
 # Category model
 # ------------------------------------------------
 class CategoryBase(SQLModel):
     name: str
-    # We'll store monthly_budget in cents internally
-    monthly_budget_cents: int = Field(default=0)
+
+    # We'll store monthly budget in decimal dollars, e.g. 200.00
+    monthly_budget: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(DECIMAL(10, 2))
+    )
 
 
 class Category(CategoryBase, table=True):
@@ -22,8 +28,11 @@ class Category(CategoryBase, table=True):
 # Cycle model
 # ------------------------------------------------
 class CycleBase(SQLModel):
-    # We'll store the total pay in cents for this 2-week period
-    pay_amount_cents: int
+    # total pay for this 2-week period as decimal dollars, e.g. 1000.00
+    pay_amount: Decimal = Field(
+        sa_column=Column(DECIMAL(10, 2)),
+        default=Decimal("0.00")
+    )
     start_date: date  # The date this cycle starts
 
 
@@ -38,8 +47,16 @@ class Cycle(CycleBase, table=True):
 # Envelope model
 # ------------------------------------------------
 class EnvelopeBase(SQLModel):
-    initial_cents: int = 0
-    current_cents: int = 0
+    # initial_dollars set when the cycle is created
+    initial: Decimal = Field(
+        sa_column=Column(DECIMAL(10, 2)),
+        default=Decimal("0.00")
+    )
+    # current_dollars will decrease when we log transactions
+    current: Decimal = Field(
+        sa_column=Column(DECIMAL(10, 2)),
+        default=Decimal("0.00")
+    )
 
 
 class Envelope(EnvelopeBase, table=True):
@@ -53,7 +70,11 @@ class Envelope(EnvelopeBase, table=True):
 # Transaction model
 # ------------------------------------------------
 class TransactionBase(SQLModel):
-    amount_cents: int
+    # how much was spent in this transaction, e.g. 15.99
+    amount: Decimal = Field(
+        sa_column=Column(DECIMAL(10, 2)),
+        default=Decimal("0.00")
+    )
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -74,5 +95,5 @@ class AlertBase(SQLModel):
 
 class Alert(AlertBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    # If you want, we could link this to a category or cycle
-    # but for now let's keep it simple with just a message.
+    # For advanced usage, you might link to a category_id or cycle_id
+    # but for now we'll just store a free-form message.
