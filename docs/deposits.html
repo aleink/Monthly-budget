@@ -32,11 +32,18 @@
     <button class="btn" id="addDepositBtn">Deposit</button>
   </div>
 
+  <div class="card">
+    <h2>Existing Deposits</h2>
+    <ul id="depositList"></ul>
+  </div>
+
   <script>
     const API_BASE = "http://127.0.0.1:8000";
 
     document.addEventListener("DOMContentLoaded", () => {
       loadBalance();
+      loadDeposits();
+
       document.getElementById("addDepositBtn").addEventListener("click", addDeposit);
     });
 
@@ -85,9 +92,61 @@
         // success
         document.getElementById("depAmount").value = "";
         loadBalance();
+        loadDeposits();
       } catch(err) {
         console.error(err);
         alert("Error creating deposit: " + err.message);
+      }
+    }
+
+    async function loadDeposits() {
+      try {
+        const res = await fetch(`${API_BASE}/transactions`);
+        if (!res.ok) throw new Error("Failed to fetch transactions");
+        const txns = await res.json();
+
+        // Filter out transactions that are "paycheck" or "atm"
+        const deposits = txns.filter(t => t.type === "paycheck" || t.type === "atm");
+
+        const ul = document.getElementById("depositList");
+        ul.innerHTML = "";
+
+        deposits.forEach(deposit => {
+          // Build a line like "Paycheck $500.00 | 2025-05-02"
+          const datePart = deposit.timestamp.split("T")[0];
+          const lineType = deposit.type === "paycheck" ? "Paycheck" : "ATM";
+          const li = document.createElement("li");
+          li.textContent = `${lineType} $${deposit.amount} | ${datePart}`;
+
+          // Delete button
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "Delete";
+          delBtn.style.marginLeft = "1rem";
+          delBtn.onclick = () => deleteDeposit(deposit.id);
+
+          li.appendChild(delBtn);
+          ul.appendChild(li);
+        });
+      } catch(err) {
+        console.error(err);
+        alert("Error loading deposits: " + err.message);
+      }
+    }
+
+    async function deleteDeposit(txnId) {
+      if (!confirm("Delete this deposit?")) return;
+      try {
+        const res = await fetch(`${API_BASE}/transactions/${txnId}`, {
+          method: "DELETE"
+        });
+        if (!res.ok) {
+          throw new Error("Failed to delete deposit");
+        }
+        loadBalance();
+        loadDeposits();
+      } catch(err) {
+        console.error(err);
+        alert("Error deleting deposit: " + err.message);
       }
     }
   </script>
