@@ -35,10 +35,8 @@
   </div>
 
   <script>
-    // =============================================
-    // Point this to your ngrok forwarding URL:
+    // MAKE SURE YOU INCLUDE THE TRAILING SLASH /categories/
     const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
-    // =============================================
 
     document.addEventListener("DOMContentLoaded", () => {
       loadCategories();
@@ -47,13 +45,13 @@
 
     async function loadCategories() {
       try {
-        const res = await fetch(`${API_BASE}/categories`);
+        const res = await fetch(`${API_BASE}/categories/`); // <--- trailing slash
         if (!res.ok) throw new Error("Failed to load categories");
         const data = await res.json();
         const ul = document.getElementById("catList");
         ul.innerHTML = "";
         data.forEach(cat => {
-          // "Market: Monthly $1000 | Bi-Weekly $500"
+          // e.g. "Market: Monthly $1000 | Bi-Weekly $500"
           let display = `${cat.name}: `;
           if (cat.monthly_budget !== "0.00") {
             display += `Monthly $${cat.monthly_budget} `;
@@ -61,7 +59,6 @@
           if (cat.biweekly_budget !== "0.00") {
             display += `| Bi-Weekly $${cat.biweekly_budget}`;
           }
-
           const li = document.createElement("li");
           li.textContent = display;
 
@@ -75,7 +72,7 @@
         });
       } catch(err) {
         console.error(err);
-        alert("Error loading categories");
+        alert("Error loading categories: " + err.message);
       }
     }
 
@@ -98,7 +95,7 @@
       };
 
       try {
-        const res = await fetch(`${API_BASE}/categories/`, {
+        const res = await fetch(`${API_BASE}/categories/`, { // <--- trailing slash
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify(body)

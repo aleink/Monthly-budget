@@ -35,12 +35,9 @@
   </div>
 
   <script>
-    // =============================================
-    // The domain from ngrok:
     const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
-    // =============================================
 
-    let categoryMap = {}; // For storing catId -> catName
+    let categoryMap = {};
 
     document.addEventListener("DOMContentLoaded", async () => {
       await loadCategories();
@@ -50,7 +47,8 @@
 
     async function loadCategories() {
       try {
-        const res = await fetch(`${API_BASE}/categories`);
+        // /categories/
+        const res = await fetch(`${API_BASE}/categories/`);
         if (!res.ok) throw new Error("Could not load categories");
         const cats = await res.json();
         const sel = document.getElementById("txnCategory");
@@ -71,7 +69,6 @@
       const txnType = document.getElementById("txnType").value;
       const amount = document.getElementById("txnAmount").value.trim();
       const category_id = document.getElementById("txnCategory").value;
-
       if (!amount) {
         alert("Please enter an amount.");
         return;
@@ -80,10 +77,10 @@
         alert("Please select a category.");
         return;
       }
-
       const body = { type: txnType, amount, category_id };
       try {
-        const res = await fetch(`${API_BASE}/transactions`, {
+        // POST /transactions/
+        const res = await fetch(`${API_BASE}/transactions/`, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify(body)
@@ -102,11 +99,11 @@
 
     async function loadExpenses() {
       try {
-        const res = await fetch(`${API_BASE}/transactions`);
+        // GET /transactions/
+        const res = await fetch(`${API_BASE}/transactions/`);
         if(!res.ok) throw new Error("Could not load transactions");
         const allTxns = await res.json();
-
-        // Filter only expense or rent_expense
+        // Filter for expense or rent_expense
         const expenseTxns = allTxns.filter(t => t.type === "expense" || t.type === "rent_expense");
 
         const ul = document.getElementById("expenseList");
@@ -130,7 +127,7 @@
         });
       } catch(err) {
         console.error(err);
-        alert("Error loading expenses");
+        alert("Error loading expenses: " + err.message);
       }
     }
 

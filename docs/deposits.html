@@ -38,20 +38,17 @@
   </div>
 
   <script>
-    // =============================================
-    // Use your ngrok forwarding URL here:
     const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
-    // =============================================
 
     document.addEventListener("DOMContentLoaded", () => {
       loadBalance();
       loadDeposits();
-
       document.getElementById("addDepositBtn").addEventListener("click", addDeposit);
     });
 
     async function loadBalance() {
       try {
+        // trailing slash for /budget/ 
         const res = await fetch(`${API_BASE}/budget/`);
         if (!res.ok) throw new Error("Failed to get budget");
         const data = await res.json();
@@ -70,18 +67,14 @@
     async function addDeposit() {
       const depType = document.getElementById("depType").value;
       const amount = document.getElementById("depAmount").value.trim();
-
       if (!amount) {
         alert("Enter an amount");
         return;
       }
-
-      const body = {
-        type: depType,
-        amount
-      };
+      const body = { type: depType, amount };
 
       try {
+        // We do POST /transactions/
         const res = await fetch(`${API_BASE}/transactions/`, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
@@ -102,7 +95,8 @@
 
     async function loadDeposits() {
       try {
-        const res = await fetch(`${API_BASE}/transactions`);
+        // GET /transactions/
+        const res = await fetch(`${API_BASE}/transactions/`);
         if (!res.ok) throw new Error("Failed to fetch transactions");
         const txns = await res.json();
         const deposits = txns.filter(t => t.type === "paycheck" || t.type === "atm");
@@ -133,12 +127,8 @@
     async function deleteDeposit(txnId) {
       if (!confirm("Delete this deposit?")) return;
       try {
-        const res = await fetch(`${API_BASE}/transactions/${txnId}`, {
-          method: "DELETE"
-        });
-        if (!res.ok) {
-          throw new Error("Failed to delete deposit");
-        }
+        const res = await fetch(`${API_BASE}/transactions/${txnId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete deposit");
         loadBalance();
         loadDeposits();
       } catch(err) {
