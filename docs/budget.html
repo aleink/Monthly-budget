@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget Status (H1/H2 + Summaries)</title>
+  <title>Budget Status (H1/H2 with Half Bars)</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
     .progress-container {
@@ -22,10 +22,9 @@
     .card ul { list-style: none; padding-left: 0; }
     .card li { margin-bottom: 1rem; }
 
-    /* The “View Mode” controls: first half / second half toggle */
     .viewModeControls {
       display: flex;
-      flex-wrap: wrap;        /* so it’s mobile-friendly */
+      flex-wrap: wrap;  /* so it’s mobile-friendly */
       align-items: center;
       gap: 1rem;
     }
@@ -33,6 +32,21 @@
       display: flex;
       align-items: center;
       gap: 0.3rem;
+    }
+    @media (max-width: 450px) {
+      .viewModeControls {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    /* Some styling for leftover bars in the top card */
+    .halfBarContainer {
+      margin-top: 1rem;
+    }
+    .halfBarLabel {
+      margin: 0.5rem 0 0.2rem;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -54,8 +68,7 @@
 
   <div class="card">
     <h2>Cashflow</h2>
-    <!-- We'll not only show total deposits/expenses, 
-         but also leftover for each half across all categories. -->
+    <!-- We’ll show total leftover for each half with a bar relative to sumH1Budget / sumH2Budget -->
     <div id="cashflow"></div>
   </div>
 
@@ -80,7 +93,6 @@
           currentHalf = radio.value;
         });
       });
-
       // reload button
       document.getElementById("toggleReloadBtn").addEventListener("click", loadBudget);
 
@@ -102,7 +114,7 @@
       const catBudgetList = document.getElementById("catBudgetList");
 
       try {
-        // 1) Sum all deposits
+        // (1) Sum all deposits
         const depSnap = await getDocs(collection(db, "deposits"));
         let depositsArr = [];
         depSnap.forEach(docSnap => {
@@ -110,19 +122,18 @@
         });
         let totalDeposits = depositsArr.reduce((sum,d)=> sum + (d.amount||0), 0);
 
-        // 2) Gather all expense transactions
+        // (2) gather expense docs
         const txnSnap = await getDocs(collection(db, "transactions"));
         let txnsArr = [];
         txnSnap.forEach(docSnap => {
           txnsArr.push({ ...docSnap.data() });
         });
-        // filter expense or rent_expense
-        const expenseArr = txnsArr.filter(t => t.type==="expense" || t.type==="rent_expense");
-        let totalExpenses = expenseArr.reduce((sum,e)=> sum + (e.amount||0), 0);
+        const expenseArr = txnsArr.filter(t => t.type==="expense"|| t.type==="rent_expense");
+        let totalExpenses = expenseArr.reduce((sum,e)=> sum+(e.amount||0), 0);
 
         let overallCashflow = totalDeposits - totalExpenses;
 
-        // 3) Fetch categories
+        // (3) fetch categories
         const catSnap = await getDocs(collection(db, "categories"));
         let categories = [];
         catSnap.forEach(docSnap => {
@@ -130,7 +141,7 @@
         });
 
         // sum total monthly & total biweekly
-        let totalMO=0, totalBW=0;
+        let totalMO = 0, totalBW=0;
         categories.forEach(cat => {
           totalMO += (cat.monthly||0);
           totalBW += (cat.biweekly||0);
@@ -138,51 +149,78 @@
         let secondCycle = totalMO - totalBW;
         if (secondCycle<0) secondCycle=0;
 
-        // 4) Build spentH1 & spentH2
+        // (4) build spentH1 & spentH2
         let spentH1 = {};
         let spentH2 = {};
         expenseArr.forEach(txn => {
-          let cId = txn.categoryId;
-          let half=txn.half||"H1";
+          let cId= txn.categoryId;
+          let half= txn.half||"H1";
           if (half==="H1") {
             if(!spentH1[cId]) spentH1[cId]=0;
-            spentH1[cId]+=txn.amount;
+            spentH1[cId]+= txn.amount;
           } else {
             if(!spentH2[cId]) spentH2[cId]=0;
-            spentH2[cId]+=txn.amount;
+            spentH2[cId]+= txn.amount;
           }
         });
 
-        // We'll compute leftover for each half across ALL categories 
-        // so user can compare with their account
-        let totalLeftoverH1=0;
-        let totalLeftoverH2=0;
+        // We want to show leftover for each half across all categories, 
+        // and display it as a bar relative to sumH1Budget / sumH2Budget
 
-        // 5) For each category, compute leftoverH1 & leftoverH2
+        // compute sumH1Budget = sum( if rent => monthlyVal, else => biweekly )
+        // compute sumH2Budget = sum( if rent => 0, else => (monthlyVal - biweekly) )
+        // leftoverH1, leftoverH2 for each category, clamp negative to 0 for summation
+        let sumH1Budget=0, sumH2Budget=0;
         categories.forEach(cat => {
-          let monthlyVal = cat.monthly || 0;
-          let bwVal = cat.biweekly || 0;
-          let spentReset = cat.spentReset || 0;
+          if (cat.isRent) {
+            // rent => entire monthly is in first half, 2nd half is 0
+            sumH1Budget += (cat.monthly||0);
+          } else {
+            sumH1Budget += (cat.biweekly||0);
+            let scnd= (cat.monthly||0) - (cat.biweekly||0);
+            if (scnd<0) scnd=0;
+            sumH2Budget += scnd;
+          }
+        });
 
-          let s1 = spentH1[cat.id]||0;
-          let s2 = spentH2[cat.id]||0;
+        // now sum leftover for each half
+        let totalLeftH1=0, totalLeftH2=0;
+
+        categories.forEach(cat => {
+          let monthlyVal= cat.monthly||0;
+          let bwVal= cat.biweekly||0;
+          let spentReset= cat.spentReset||0;
+
+          let s1= spentH1[cat.id]||0;
+          let s2= spentH2[cat.id]||0;
 
           // leftoverH1 = ( isRent? monthlyVal : bwVal ) - (s1 - spentReset )
-          // can be negative if overspent
-          let firstHalfBudget= cat.isRent ? monthlyVal : bwVal;
-          let leftoverH1= firstHalfBudget - (s1 - spentReset);
-          // leftoverH2 = leftoverH1 + (monthlyVal - firstHalfBudget ) - s2
+          let firstHalfBudget= cat.isRent? monthlyVal: bwVal;
+          let leftoverH1= firstHalfBudget - ( s1 - spentReset );
+
+          // leftoverH2 = leftoverH1 + (monthlyVal - firstHalfBudget) - s2
           let secondHalfBudget= monthlyVal - firstHalfBudget;
           if(secondHalfBudget<0) secondHalfBudget=0; 
           let leftoverH2= leftoverH1 + secondHalfBudget - s2;
 
-          // For summation, clamp negative leftover to 0 so we don't get negative totals
-          totalLeftoverH1 += leftoverH1<0 ? 0 : leftoverH1;
-          totalLeftoverH2 += leftoverH2<0 ? 0 : leftoverH2;
+          // for the total leftover sums, clamp negative leftover to 0
+          if (leftoverH1>0) totalLeftH1+= leftoverH1;
+          if (leftoverH2>0) totalLeftH2+= leftoverH2;
         });
 
-        // 6) Display top-level leftover for each half, plus normal lines
-        // We also note which half is toggled for the per-category table
+        // compute bar pct for each half
+        // bar for H1 leftover = totalLeftH1 / sumH1Budget * 100
+        let h1BarPct=0;
+        if (sumH1Budget>0) {
+          h1BarPct= ( totalLeftH1 / sumH1Budget )*100;
+        }
+        // bar for H2 leftover = totalLeftH2 / sumH2Budget * 100
+        let h2BarPct=0;
+        if (sumH2Budget>0) {
+          h2BarPct= ( totalLeftH2 / sumH2Budget )*100;
+        }
+
+        // (5) display top-level in cashflowEl, with two bars
         cashflowEl.innerHTML=`
           <p>Total Deposits = $${totalDeposits.toFixed(2)}</p>
           <p>Total Expenses = $${totalExpenses.toFixed(2)}</p>
@@ -195,17 +233,29 @@
             <strong>1st Cycle = $${totalBW.toFixed(2)}</strong><br>
             <strong>2nd Cycle = $${secondCycle.toFixed(2)}</strong>
           </p>
+
           <h3>Overall Leftover by Half:</h3>
-          <p>First Half Leftover (sum of all categories): <strong>$${totalLeftoverH1.toFixed(2)}</strong></p>
-          <p>Second Half Leftover (sum of all categories): <strong>$${totalLeftoverH2.toFixed(2)}</strong></p>
-          <p>Viewing: <strong>${currentHalf==="H1"?"First Half":"Second Half"}</strong> (per-category)</p>
+          <p>First Half (Allocated: $${sumH1Budget.toFixed(2)}) Leftover: $${totalLeftH1.toFixed(2)}</p>
+          <div class="progress-container">
+            <div class="progress-bar" style="width:${h1BarPct}%;"></div>
+          </div>
+
+          <div style="margin-top:1rem;"></div>
+          <p>Second Half (Allocated: $${sumH2Budget.toFixed(2)}) Leftover: $${totalLeftH2.toFixed(2)}</p>
+          <div class="progress-container">
+            <div class="progress-bar" style="width:${h2BarPct}%;"></div>
+          </div>
+
+          <p style="margin-top:1rem;">
+            Viewing: <strong>${currentHalf==="H1"?"First Half":"Second Half"}</strong> (per-category below)
+          </p>
         `;
 
-        // 7) Now build the per-category leftover table based on the toggle
+        // (6) Build the per-category leftover table based on the toggle
         catBudgetList.innerHTML="";
         categories.forEach(cat => {
-          let monthlyVal = cat.monthly||0;
-          let bwVal = cat.biweekly||0;
+          let monthlyVal= cat.monthly||0;
+          let bwVal= cat.biweekly||0;
           let spentReset= cat.spentReset||0;
 
           let s1= spentH1[cat.id]||0;
@@ -213,68 +263,96 @@
 
           let leftover=0, line="";
 
-          // compute leftover for the toggled half
           if (currentHalf==="H1") {
-            let firstHalfBudget= cat.isRent? monthlyVal : bwVal;
-            let leftoverH1= firstHalfBudget - (s1 - spentReset); 
-            // leftover can be negative if overspent
-            leftover= leftoverH1;
-            // for display, clamp if negative
-            let displayLeftover= leftoverH1<0 ? 0 : leftoverH1;
-            let pct=0;
-            if (firstHalfBudget>0) pct= (displayLeftover/firstHalfBudget)*100;
-
-            line= `${cat.name} (H1): $${displayLeftover.toFixed(2)} left of $${firstHalfBudget.toFixed(2)} (${pct.toFixed(1)}%)`;
-          } else {
-            // second half
-            let firstHalfBudget= cat.isRent? monthlyVal : bwVal;
+            // leftoverH1 = (isRent? monthlyVal: bwVal) - (s1 - spentReset)
+            let firstHalfBudget= cat.isRent? monthlyVal: bwVal;
             let leftoverH1= firstHalfBudget - (s1 - spentReset);
+            // leftover might be negative if overspent
+            leftover= leftoverH1;
+            let displayLeft= leftoverH1<0? 0: leftoverH1;
+            let pct=0;
+            if(firstHalfBudget>0) pct= (displayLeft/ firstHalfBudget)*100;
+
+            line= `${cat.name} (H1): $${displayLeft.toFixed(2)} left of $${firstHalfBudget.toFixed(2)} (${pct.toFixed(1)}%)`;
+
+          } else {
+            // leftoverH1
+            let firstHalfBudget= cat.isRent? monthlyVal: bwVal;
+            let leftoverH1= firstHalfBudget - (s1 - spentReset);
+
             let secondHalfBudget= monthlyVal - firstHalfBudget;
-            if (secondHalfBudget<0) secondHalfBudget=0;
+            if(secondHalfBudget<0) secondHalfBudget=0;
 
             let leftoverH2= leftoverH1 + secondHalfBudget - s2;
             leftover= leftoverH2;
-            let displayLeftover= leftoverH2<0 ? 0 : leftoverH2;
-            // for the percentage, we use monthlyVal
+            let displayLeft= leftoverH2<0?0:leftoverH2;
             let pct=0;
-            if (monthlyVal>0) pct= (displayLeftover/monthlyVal)*100;
+            // here we want to use the allocated portion for second half, i.e. secondHalfBudget + leftoverH1? 
+            // but simpler to do a ratio to monthly? 
+            // We'll do ratio to secondHalfBudget + leftoverH1 if leftoverH1>0. 
+            // For clarity, let's just do monthlyVal or do secondHalfBudget. 
+            // We'll do ratio to secondHalfBudget + leftoverH1 if leftoverH1>0, 
+            // but leftoverH1 can be negative. 
+            // Let's keep it simple: ratio to secondHalfBudget? 
+            // The user specifically said "the second half uses the portion allocated for it," 
+            // that's secondHalfBudget + leftoverH1? They want overspend from H1 to reduce the second half portion. 
+            // We'll do ratio to ( leftoverH1 + secondHalfBudget ) if leftoverH1>0. 
+            // If leftoverH1 negative, that means secondHalf is forced smaller. 
+            let half2Allocated= leftoverH1>0 ? leftoverH1 + secondHalfBudget : secondHalfBudget;
+            if (half2Allocated<0) half2Allocated=0; 
 
-            line= `${cat.name} (H2): $${displayLeftover.toFixed(2)} left of $${monthlyVal.toFixed(2)} (${pct.toFixed(1)}%)`;
+            if (half2Allocated>0) {
+              pct= (displayLeft / half2Allocated)*100;
+            }
+
+            line= `${cat.name} (H2): $${displayLeft.toFixed(2)} left (Alloc: $${(half2Allocated).toFixed(2)}) (${pct.toFixed(1)}%)`;
           }
 
           const li = document.createElement("li");
-          li.innerHTML = `
+          li.innerHTML= `
             <strong>${line}</strong>
             <div class="progress-container">
               <div class="progress-bar" style="width:0%;"></div>
             </div>
           `;
 
-          // set the progress bar width
-          let bar = li.querySelector(".progress-bar");
+          // set bar width
+          let bar= li.querySelector(".progress-bar");
           let barPct=0;
           if(currentHalf==="H1") {
-            let firstHalfBudget= cat.isRent? monthlyVal : bwVal;
+            let firstHalfBudget= cat.isRent? monthlyVal: bwVal;
             let leftoverH1= leftover;
-            let displayLeftover= leftoverH1<0?0:leftoverH1;
-            if(firstHalfBudget>0) barPct= (displayLeftover/firstHalfBudget)*100;
+            let displayLeft= leftoverH1<0?0: leftoverH1;
+            if(firstHalfBudget>0) barPct= (displayLeft/firstHalfBudget)*100;
           } else {
-            let monthly= cat.monthly||0;
+            // we do the ratio to leftoverH1 + secondHalfBudget 
+            // if leftoverH1 is negative, we reduce second half portion
+            let firstHalfBudget= cat.isRent? monthlyVal: bwVal;
+            let leftoverH1= firstHalfBudget - (s1 - spentReset);
+            let secondHalfBudget= monthlyVal- firstHalfBudget; 
+            if(secondHalfBudget<0) secondHalfBudget=0;
+
+            let half2Alloc= leftoverH1>0 ? leftoverH1 + secondHalfBudget : secondHalfBudget;
+            if(half2Alloc<0) half2Alloc=0;
             let leftoverH2= leftover;
-            let displayLeftover= leftoverH2<0?0:leftoverH2;
-            if(monthly>0) barPct= (displayLeftover/monthly)*100;
+            let displayLeft= leftoverH2<0?0:leftoverH2;
+            if(half2Alloc>0) {
+              barPct= (displayLeft/ half2Alloc)*100;
+            }
           }
-          bar.style.width = `${barPct}%`;
+          bar.style.width=`${barPct}%`;
 
           // add Reset button
           const resetBtn= document.createElement("button");
           resetBtn.textContent= "Reset Budget";
           resetBtn.style.marginLeft="1rem";
           resetBtn.onclick= async()=>{
-            if(confirm(`Reset '${cat.name}' budget for the entire month?`)) {
+            if (confirm(`Reset '${cat.name}' budget for the entire month?`)) {
               // set spentReset => totalSpent across both halves
-              let totalSpent= s1 + s2;
-              await updateDoc(doc(db, "categories", cat.id),{
+              let s1= spentH1[cat.id]||0;
+              let s2= spentH2[cat.id]||0;
+              let totalSpent= s1+s2;
+              await updateDoc(doc(db,"categories",cat.id),{
                 spentReset: totalSpent
               });
               loadBudget();
@@ -284,6 +362,7 @@
 
           catBudgetList.appendChild(li);
         });
+
       } catch(err) {
         catBudgetList.innerHTML=`<li>Error: ${err.message}</li>`;
       }
