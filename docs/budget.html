@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget Status - With Reset + 1st/2nd Cycle</title>
+  <title>Budget Status (Toggle H1/H2)</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
     .progress-container {
@@ -30,12 +30,20 @@
   </header>
 
   <div class="card">
+    <h2>View Mode</h2>
+    <!-- Toggle for first half or second half -->
+    <label><input type="radio" name="halfToggle" value="H1" checked> First Half</label>
+    <label><input type="radio" name="halfToggle" value="H2"> Second Half</label>
+    <button id="toggleReloadBtn">Reload</button>
+  </div>
+
+  <div class="card">
     <h2>Cashflow</h2>
     <div id="cashflow"></div>
   </div>
 
   <div class="card">
-    <h2>Per-Category Budgets</h2>
+    <h2>Per-Category Leftover</h2>
     <ul id="catBudgetList"></ul>
   </div>
 
@@ -45,39 +53,64 @@
       collection, getDocs, doc, updateDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    document.addEventListener("DOMContentLoaded", loadBudget);
+    let currentHalf = "H1";  // default to H1
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // read radio
+      const radios = document.getElementsByName("halfToggle");
+      radios.forEach(r => {
+        r.addEventListener("change", () => {
+          currentHalf = r.value;
+        });
+      });
+      document.getElementById("toggleReloadBtn").addEventListener("click", loadBudget);
+
+      loadBudget();
+    });
 
     async function loadBudget() {
+      // read the current radio state
+      const radios = document.getElementsByName("halfToggle");
+      for (let r of radios) {
+        if (r.checked) {
+          currentHalf = r.value;
+          break;
+        }
+      }
+
       const cashflowEl = document.getElementById("cashflow");
       const catBudgetList = document.getElementById("catBudgetList");
 
       try {
-        // 1) Sum of all deposits
+        // 1) sum all deposits
         const depColl = collection(db, "deposits");
         const depSnap = await getDocs(depColl);
         let depositsArr = [];
         depSnap.forEach(doc => depositsArr.push({ id: doc.id, ...doc.data() }));
         let totalDeposits = depositsArr.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-        // 2) Sum of all expenses (only expense/rent_expense)
+        // 2) fetch all expenses
         const txnColl = collection(db, "transactions");
         const txnSnap = await getDocs(txnColl);
         let txnsArr = [];
-        txnSnap.forEach(doc => txnsArr.push({ id: doc.id, ...doc.data() }));
-        const expenseArr = txnsArr.filter(t => t.type === "expense" || t.type === "rent_expense");
-        let totalExpenses = expenseArr.reduce((sum, e) => sum + (e.amount || 0), 0);
+        txnSnap.forEach(docSnap => {
+          txnsArr.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        // filter to expense/rent_expense
+        const expenseArr = txnsArr.filter(t => t.type==="expense" || t.type==="rent_expense");
+        let totalExpenses = expenseArr.reduce((sum,e)=> sum+(e.amount||0),0);
 
         let overallCashflow = totalDeposits - totalExpenses;
 
-        // 3) Fetch all categories
-        const catColl = collection(db, "categories");
+        // 3) categories
+        const catColl = collection(db,"categories");
         const catSnap = await getDocs(catColl);
         let categories = [];
-        catSnap.forEach(c => {
-          categories.push({ id: c.id, ...c.data() });
+        catSnap.forEach(docSnap => {
+          categories.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // 4) Compute total monthly + sum of biweekly
+        // sum up total monthly & total bw
         let totalMO = 0;
         let totalBW = 0;
         categories.forEach(cat => {
@@ -85,9 +118,9 @@
           totalBW += (cat.biweekly || 0);
         });
         let secondCycle = totalMO - totalBW;
-        if (secondCycle < 0) secondCycle = 0;
+        if (secondCycle < 0) secondCycle=0;
 
-        // 5) Display top-level stats in cashflowEl
+        // Display top-level in cashflowEl
         cashflowEl.innerHTML = `
           <p>Total Deposits = $${totalDeposits.toFixed(2)}</p>
           <p>Total Expenses = $${totalExpenses.toFixed(2)}</p>
@@ -100,64 +133,127 @@
             <strong>1st Cycle = $${totalBW.toFixed(2)}</strong><br>
             <strong>2nd Cycle = $${secondCycle.toFixed(2)}</strong>
           </p>
+          <p>Viewing: <strong>${currentHalf==="H1"?"First Half":"Second Half"}</strong></p>
         `;
 
-        // 6) Build a spentMap => categoryId => totalSpent
-        let spentMap = {};
+        // 4) Build spentMap for each half
+        // e.g. spentH1[catId], spentH2[catId]
+        let spentH1 = {};
+        let spentH2 = {};
+
         expenseArr.forEach(txn => {
           let cId = txn.categoryId;
-          if (!spentMap[cId]) spentMap[cId] = 0;
-          spentMap[cId] += txn.amount;
+          let half = txn.half || "H1"; // default if missing
+          if (half==="H1") {
+            if (!spentH1[cId]) spentH1[cId]=0;
+            spentH1[cId]+=txn.amount;
+          } else {
+            if (!spentH2[cId]) spentH2[cId]=0;
+            spentH2[cId]+=txn.amount;
+          }
         });
 
-        // 7) Show each category’s leftover & a Reset button
+        // 5) Show leftover for each category
         catBudgetList.innerHTML = "";
 
         categories.forEach(cat => {
-          // leftover = budgetVal - (spentVal - spentReset)
-          // if cat.isRent => cat.monthly, else cat.biweekly
-          let budgetVal = cat.isRent ? (cat.monthly || 0) : (cat.biweekly || 0);
-          let spentVal = spentMap[cat.id] || 0;
-          let spentReset = cat.spentReset || 0;  // default 0 if missing
+          // if cat.isRent => monthly, else biweekly
+          // for leftover calc, we do different logic for H1 vs H2
+          let monthlyVal = cat.monthly || 0;
+          let bwVal = cat.biweekly || 0;
+          let spentReset = cat.spentReset || 0;
 
-          let leftover = budgetVal - (spentVal - spentReset);
-          if (leftover < 0) leftover = 0;
+          let spent1 = spentH1[cat.id] || 0;
+          let spent2 = spentH2[cat.id] || 0;
 
-          let pct = 0;
-          if (budgetVal > 0) {
-            pct = (leftover / budgetVal) * 100;
+          let leftover = 0;
+          let line = "";
+
+          if (currentHalf === "H1") {
+            // leftover = bwVal - (spent1 - spentReset)
+            // if cat.isRent => still use monthly? or do you want rent to be splitted? 
+            // We'll assume we STILL use "bwVal" if !isRent. if isRent => monthly? 
+            // But user wants "BW counts only for first half." Even if it's rent or not?
+            // We'll do your existing logic: isRent => monthly => first half
+            let budgetVal = cat.isRent ? monthlyVal : bwVal;
+
+            leftover = budgetVal - (spent1 - spentReset);
+            if (leftover<0) leftover=0;
+
+            let pct=0;
+            if (budgetVal>0) pct=(leftover/budgetVal)*100;
+
+            line = `${cat.name} (H1): $${leftover.toFixed(2)} left of $${budgetVal.toFixed(2)} (${pct.toFixed(1)}%)`;
+
+          } else {
+            // second half
+            // leftoverH1 = bwVal - (spent1 - spentReset)
+            let leftoverH1 = bwVal - (spent1 - spentReset);
+            if (leftoverH1<0) leftoverH1=0;
+
+            // second half portion = monthlyVal - bwVal
+            let half2portion = monthlyVal - bwVal;
+            if (half2portion<0) half2portion=0;
+
+            // leftover = leftoverH1 + half2portion - spent2
+            leftover = leftoverH1 + half2portion - spent2;
+            if (leftover<0) leftover=0;
+
+            // percentage based on the entire monthlyVal
+            // or you can base it on just half2portion + leftoverH1? 
+            // We'll do entire monthly, to see how close to mo
+            let pct=0;
+            if (monthlyVal>0) {
+              pct = (leftover / monthlyVal)*100;
+            }
+
+            line = `${cat.name} (H2): $${leftover.toFixed(2)} left of $${monthlyVal.toFixed(2)} (${pct.toFixed(1)}%)`;
           }
 
-          let line = `${cat.name}: $${leftover.toFixed(2)} left of $${budgetVal.toFixed(2)} (${pct.toFixed(1)}%)`;
-
+          // Build DOM
           const li = document.createElement("li");
           li.innerHTML = `
             <strong>${line}</strong>
             <div class="progress-container">
-              <div class="progress-bar" style="width:${pct}%;"></div>
+              <div class="progress-bar" style="width:0%;"></div>
             </div>
           `;
+          // set bar width
+          let bar = li.querySelector(".progress-bar");
+          // parse out the leftover vs budget?
+          // we already have leftover & a budgetVal, let's do the same calc
+          // but let's do budgetVal for the relevant portion
+          // or if H2, we used monthly for the percentage above
+          let barPct = 0;
+          if (currentHalf==="H1") {
+            let budgetVal = cat.isRent ? monthlyVal : bwVal;
+            if (budgetVal>0) barPct=(leftover / budgetVal)*100;
+          } else {
+            // second half, we decided to do leftover / monthlyVal for display
+            if (monthlyVal>0) barPct=(leftover / monthlyVal)*100;
+          }
+          bar.style.width=`${barPct}%`;
 
-          // RESET button
+          // add reset button
           const resetBtn = document.createElement("button");
-          resetBtn.textContent = "Reset Budget";
-          resetBtn.style.marginLeft = "1rem";
-          resetBtn.onclick = async () => {
-            if (confirm(`Reset '${cat.name}' budget to full? This won't delete old transactions.`)) {
-              // set cat.spentReset to spentVal
-              await updateDoc(doc(db, "categories", cat.id), {
-                spentReset: spentVal
+          resetBtn.textContent="Reset Budget";
+          resetBtn.style.marginLeft="1rem";
+          resetBtn.onclick=async()=>{
+            if (confirm(`Reset '${cat.name}' budget for the entire month?`)) {
+              // We'll set spentReset to the total spent in H1+H2 => leftover => monthlyVal
+              let totalSpent = spent1+spent2;
+              await updateDoc(doc(db,"categories", cat.id), {
+                spentReset: totalSpent
               });
-              loadBudget(); // refresh
+              loadBudget();
             }
           };
-
           li.appendChild(resetBtn);
+
           catBudgetList.appendChild(li);
         });
-
       } catch(err) {
-        catBudgetList.innerHTML = `<li>Error: ${err.message}</li>`;
+        catBudgetList.innerHTML=`<li>Error: ${err.message}</li>`;
       }
     }
   </script>
