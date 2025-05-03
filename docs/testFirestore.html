@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Firestore Test</title>
+</head>
+<body>
+  <h1>Firestore Test</h1>
+  <button id="writeBtn">Write Doc</button>
+  <button id="readBtn">Read Docs</button>
+  <pre id="output"></pre>
+
+  <script type="module">
+    import { db } from "./firebase.js";
+    import {
+      collection,
+      addDoc,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    const writeBtn = document.getElementById("writeBtn");
+    const readBtn = document.getElementById("readBtn");
+    const output = document.getElementById("output");
+
+    writeBtn.addEventListener("click", async () => {
+      try {
+        // references 'testCollection' in Firestore
+        const collRef = collection(db, "testCollection");
+        // write a doc with a random field
+        const docRef = await addDoc(collRef, {
+          timestamp: new Date().toISOString(),
+          randomValue: Math.floor(Math.random() * 1000)
+        });
+        output.textContent = `Wrote doc with ID ${docRef.id}`;
+      } catch(err) {
+        output.textContent = "Error writing doc: " + err.message;
+      }
+    });
+
+    readBtn.addEventListener("click", async () => {
+      try {
+        const collRef = collection(db, "testCollection");
+        const snap = await getDocs(collRef);
+        let docsArr = [];
+        snap.forEach(doc => {
+          docsArr.push({ id: doc.id, ...doc.data() });
+        });
+        output.textContent = JSON.stringify(docsArr, null, 2);
+      } catch(err) {
+        output.textContent = "Error reading docs: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

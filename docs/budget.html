@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget Status</title>
+  <title>Budget Status - Advanced</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
+    /* Simple styling for a progress bar */
     .progress-container {
       background-color: #e9ecef;
       border-radius: 0.25rem;
@@ -19,6 +20,8 @@
       height: 100%;
       transition: width 0.4s ease;
     }
+    .card ul { list-style: none; padding-left: 0; }
+    .card li { margin-bottom: 1rem; }
   </style>
 </head>
 <body>
@@ -28,64 +31,100 @@
   </header>
 
   <div class="card">
-    <h2>Available Cash</h2>
-    <p id="availableCash">$0.00</p>
-    <button class="btn" onclick="loadBudget()">Refresh</button>
+    <h2>Cashflow</h2>
+    <div id="cashflow"></div>
   </div>
 
-  <div class="card" id="budgetCard"></div>
+  <div class="card">
+    <h2>Per-Category Budgets</h2>
+    <ul id="catBudgetList"></ul>
+  </div>
 
-  <script>
-    const API_BASE = "https://0829-70-175-49-108.ngrok-free.app";
+  <script type="module">
+    import { db } from "./firebase.js";
+    import {
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     document.addEventListener("DOMContentLoaded", loadBudget);
 
     async function loadBudget() {
+      const cashflowEl = document.getElementById("cashflow");
+      const catBudgetList = document.getElementById("catBudgetList");
+
       try {
-        // GET /budget/
-        const res = await fetch(`${API_BASE}/budget/`);
-        if (!res.ok) throw new Error("Failed to fetch budget");
-        const data = await res.json();
+        // 1) Get all deposits => sum them
+        const depColl = collection(db, "deposits");
+        const depSnap = await getDocs(depColl);
+        let depositsArr = [];
+        depSnap.forEach(doc => depositsArr.push({ id: doc.id, ...doc.data() }));
+        let totalDeposits = depositsArr.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-        if (data.message) {
-          document.getElementById("availableCash").textContent = data.message;
-          return;
-        }
-        document.getElementById("availableCash").textContent = `$${data.available_cash}`;
+        // 2) Get all transactions => filter expense/rent_expense => sum them
+        const txnColl = collection(db, "transactions");
+        const txnSnap = await getDocs(txnColl);
+        let txnsArr = [];
+        txnSnap.forEach(doc => txnsArr.push({ id: doc.id, ...doc.data() }));
+        const expenseArr = txnsArr.filter(t => t.type === "expense" || t.type === "rent_expense");
+        let totalExpenses = expenseArr.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-        const container = document.getElementById("budgetCard");
-        container.innerHTML = `<h2>Categories</h2>`;
-        let html = "<ul>";
+        // => Overall cashflow
+        let overallCashflow = totalDeposits - totalExpenses;
 
-        data.categories.forEach(cat => {
-          let maxBudget = cat.is_rent ? parseFloat(cat.monthly_budget) : parseFloat(cat.biweekly_budget);
-          if (maxBudget <= 0) maxBudget = 1;
-          const current = parseFloat(cat.current_envelope);
-          const rawPct = (current / maxBudget) * 100;
-          const pct = Math.max(0, Math.min(100, rawPct));
+        // Show them on separate lines
+        cashflowEl.innerHTML = `
+          <p>Total Deposits = $${totalDeposits.toFixed(2)}</p>
+          <p>Total Expenses = $${totalExpenses.toFixed(2)}</p>
+          <strong style="font-size:1.1em;">
+            Available Cash = $${overallCashflow.toFixed(2)}
+          </strong>
+        `;
 
-          const leftoverStr = current.toFixed(2);
-          const maxStr = maxBudget.toFixed(2);
-          let line = `<strong>${cat.name}</strong>: $${leftoverStr} left of $${maxStr} `;
-          let percentLine = `(${rawPct.toFixed(1)}%)`;
+        // 3) Per-Category budgets: if cat.isRent => cat.monthly, else cat.biweekly
+        // Then leftover = budget - sum of expenses in that category
+        // Display a depleting bar
+        const catColl = collection(db, "categories");
+        const catSnap = await getDocs(catColl);
+        let categories = [];
+        catSnap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
 
-          let barHTML = `
+        // Build a spentMap: categoryId => totalSpent
+        let spentMap = {};
+        expenseArr.forEach(txn => {
+          let cId = txn.categoryId;
+          if (!spentMap[cId]) spentMap[cId] = 0;
+          spentMap[cId] += txn.amount;
+        });
+
+        catBudgetList.innerHTML = "";
+        categories.forEach(cat => {
+          let budgetVal = cat.isRent ? (cat.monthly || 0) : (cat.biweekly || 0);
+          let spentVal = spentMap[cat.id] || 0;
+          let leftover = budgetVal - spentVal;
+
+          // If leftover < 0, optionally clamp to 0
+          if (leftover < 0) leftover = 0;
+
+          let pct = 0;
+          if (budgetVal > 0) {
+            pct = (leftover / budgetVal) * 100;
+          }
+
+          let line = `${cat.name}: $${leftover.toFixed(2)} left of $${budgetVal.toFixed(2)} (${pct.toFixed(1)}%)`;
+
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <strong>${line}</strong>
             <div class="progress-container">
               <div class="progress-bar" style="width:${pct}%;"></div>
             </div>
           `;
-          html += `
-            <li style="margin-bottom:1rem;">
-              ${line} ${percentLine}
-              ${barHTML}
-            </li>
-          `;
+          catBudgetList.appendChild(li);
         });
-        html += "</ul>";
-        container.innerHTML += html;
+
       } catch(err) {
-        console.error(err);
-        alert("Error loading budget: " + err.message);
+        catBudgetList.innerHTML = `<li>Error: ${err.message}</li>`;
       }
     }
   </script>
