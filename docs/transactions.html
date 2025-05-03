@@ -115,7 +115,7 @@
           amount:     amtVal,
           timestamp:  new Date().toISOString()
         });
-        // clear input
+        // Clear input
         txnAmtEl.value = "";
         loadExpenses();
       } catch(err) {
@@ -150,7 +150,6 @@
             }
           };
           li.appendChild(delBtn);
-
           txnListEl.appendChild(li);
         });
       } catch(err) {
