@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget Status - With Reset + Totals</title>
+  <title>Budget Status - With Reset + 1st/2nd Cycle</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
     .progress-container {
@@ -59,7 +59,7 @@
         depSnap.forEach(doc => depositsArr.push({ id: doc.id, ...doc.data() }));
         let totalDeposits = depositsArr.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-        // 2) Sum of all expenses
+        // 2) Sum of all expenses (only expense/rent_expense)
         const txnColl = collection(db, "transactions");
         const txnSnap = await getDocs(txnColl);
         let txnsArr = [];
@@ -77,13 +77,15 @@
           categories.push({ id: c.id, ...c.data() });
         });
 
-        // 4) Calculate "Total MO Budget" & "Total BW Budget"
+        // 4) Compute total monthly + sum of biweekly
         let totalMO = 0;
         let totalBW = 0;
         categories.forEach(cat => {
           totalMO += (cat.monthly || 0);
           totalBW += (cat.biweekly || 0);
         });
+        let secondCycle = totalMO - totalBW;
+        if (secondCycle < 0) secondCycle = 0;
 
         // 5) Display top-level stats in cashflowEl
         cashflowEl.innerHTML = `
@@ -95,7 +97,8 @@
           <br><br>
           <p>
             <strong>Total MO Budget = $${totalMO.toFixed(2)}</strong><br>
-            <strong>Total BW Budget = $${totalBW.toFixed(2)}</strong>
+            <strong>1st Cycle = $${totalBW.toFixed(2)}</strong><br>
+            <strong>2nd Cycle = $${secondCycle.toFixed(2)}</strong>
           </p>
         `;
 
@@ -111,8 +114,8 @@
         catBudgetList.innerHTML = "";
 
         categories.forEach(cat => {
-          // half logic => leftover = budgetVal - (spentVal - spentReset)
-          // cat.isRent => use cat.monthly, otherwise cat.biweekly
+          // leftover = budgetVal - (spentVal - spentReset)
+          // if cat.isRent => cat.monthly, else cat.biweekly
           let budgetVal = cat.isRent ? (cat.monthly || 0) : (cat.biweekly || 0);
           let spentVal = spentMap[cat.id] || 0;
           let spentReset = cat.spentReset || 0;  // default 0 if missing
@@ -142,7 +145,6 @@
           resetBtn.onclick = async () => {
             if (confirm(`Reset '${cat.name}' budget to full? This won't delete old transactions.`)) {
               // set cat.spentReset to spentVal
-              // leftover => budgetVal
               await updateDoc(doc(db, "categories", cat.id), {
                 spentReset: spentVal
               });
