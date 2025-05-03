@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget Status - Advanced</title>
+  <title>Budget Status - With Reset + Totals</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
-    /* Simple styling for a progress bar */
     .progress-container {
       background-color: #e9ecef;
       border-radius: 0.25rem;
@@ -43,8 +42,7 @@
   <script type="module">
     import { db } from "./firebase.js";
     import {
-      collection,
-      getDocs
+      collection, getDocs, doc, updateDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     document.addEventListener("DOMContentLoaded", loadBudget);
@@ -54,14 +52,14 @@
       const catBudgetList = document.getElementById("catBudgetList");
 
       try {
-        // 1) Get all deposits => sum them
+        // 1) Sum of all deposits
         const depColl = collection(db, "deposits");
         const depSnap = await getDocs(depColl);
         let depositsArr = [];
         depSnap.forEach(doc => depositsArr.push({ id: doc.id, ...doc.data() }));
         let totalDeposits = depositsArr.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-        // 2) Get all transactions => filter expense/rent_expense => sum them
+        // 2) Sum of all expenses
         const txnColl = collection(db, "transactions");
         const txnSnap = await getDocs(txnColl);
         let txnsArr = [];
@@ -69,27 +67,39 @@
         const expenseArr = txnsArr.filter(t => t.type === "expense" || t.type === "rent_expense");
         let totalExpenses = expenseArr.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-        // => Overall cashflow
         let overallCashflow = totalDeposits - totalExpenses;
 
-        // Show them on separate lines
+        // 3) Fetch all categories
+        const catColl = collection(db, "categories");
+        const catSnap = await getDocs(catColl);
+        let categories = [];
+        catSnap.forEach(c => {
+          categories.push({ id: c.id, ...c.data() });
+        });
+
+        // 4) Calculate "Total MO Budget" & "Total BW Budget"
+        let totalMO = 0;
+        let totalBW = 0;
+        categories.forEach(cat => {
+          totalMO += (cat.monthly || 0);
+          totalBW += (cat.biweekly || 0);
+        });
+
+        // 5) Display top-level stats in cashflowEl
         cashflowEl.innerHTML = `
           <p>Total Deposits = $${totalDeposits.toFixed(2)}</p>
           <p>Total Expenses = $${totalExpenses.toFixed(2)}</p>
           <strong style="font-size:1.1em;">
             Available Cash = $${overallCashflow.toFixed(2)}
           </strong>
+          <br><br>
+          <p>
+            <strong>Total MO Budget = $${totalMO.toFixed(2)}</strong><br>
+            <strong>Total BW Budget = $${totalBW.toFixed(2)}</strong>
+          </p>
         `;
 
-        // 3) Per-Category budgets: if cat.isRent => cat.monthly, else cat.biweekly
-        // Then leftover = budget - sum of expenses in that category
-        // Display a depleting bar
-        const catColl = collection(db, "categories");
-        const catSnap = await getDocs(catColl);
-        let categories = [];
-        catSnap.forEach(doc => categories.push({ id: doc.id, ...doc.data() }));
-
-        // Build a spentMap: categoryId => totalSpent
+        // 6) Build a spentMap => categoryId => totalSpent
         let spentMap = {};
         expenseArr.forEach(txn => {
           let cId = txn.categoryId;
@@ -97,13 +107,17 @@
           spentMap[cId] += txn.amount;
         });
 
+        // 7) Show each category’s leftover & a Reset button
         catBudgetList.innerHTML = "";
+
         categories.forEach(cat => {
+          // half logic => leftover = budgetVal - (spentVal - spentReset)
+          // cat.isRent => use cat.monthly, otherwise cat.biweekly
           let budgetVal = cat.isRent ? (cat.monthly || 0) : (cat.biweekly || 0);
           let spentVal = spentMap[cat.id] || 0;
-          let leftover = budgetVal - spentVal;
+          let spentReset = cat.spentReset || 0;  // default 0 if missing
 
-          // If leftover < 0, optionally clamp to 0
+          let leftover = budgetVal - (spentVal - spentReset);
           if (leftover < 0) leftover = 0;
 
           let pct = 0;
@@ -120,6 +134,23 @@
               <div class="progress-bar" style="width:${pct}%;"></div>
             </div>
           `;
+
+          // RESET button
+          const resetBtn = document.createElement("button");
+          resetBtn.textContent = "Reset Budget";
+          resetBtn.style.marginLeft = "1rem";
+          resetBtn.onclick = async () => {
+            if (confirm(`Reset '${cat.name}' budget to full? This won't delete old transactions.`)) {
+              // set cat.spentReset to spentVal
+              // leftover => budgetVal
+              await updateDoc(doc(db, "categories", cat.id), {
+                spentReset: spentVal
+              });
+              loadBudget(); // refresh
+            }
+          };
+
+          li.appendChild(resetBtn);
           catBudgetList.appendChild(li);
         });
 
