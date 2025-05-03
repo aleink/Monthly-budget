@@ -48,7 +48,7 @@
 
     async function loadBalance() {
       try {
-        // trailing slash for /budget/ 
+        // GET /budget/
         const res = await fetch(`${API_BASE}/budget/`);
         if (!res.ok) throw new Error("Failed to get budget");
         const data = await res.json();
@@ -74,7 +74,7 @@
       const body = { type: depType, amount };
 
       try {
-        // We do POST /transactions/
+        // POST /transactions/
         const res = await fetch(`${API_BASE}/transactions/`, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
@@ -95,25 +95,25 @@
 
     async function loadDeposits() {
       try {
-        // GET /transactions/
         const res = await fetch(`${API_BASE}/transactions/`);
         if (!res.ok) throw new Error("Failed to fetch transactions");
         const txns = await res.json();
+        // Filter for 'paycheck' or 'atm'
         const deposits = txns.filter(t => t.type === "paycheck" || t.type === "atm");
 
         const ul = document.getElementById("depositList");
         ul.innerHTML = "";
 
-        deposits.forEach(deposit => {
-          const datePart = deposit.timestamp.split("T")[0];
-          const lineType = deposit.type === "paycheck" ? "Paycheck" : "ATM";
+        deposits.forEach(dep => {
+          const datePart = dep.timestamp.split("T")[0];
+          const lineType = (dep.type === "paycheck") ? "Paycheck" : "ATM";
           const li = document.createElement("li");
-          li.textContent = `${lineType} $${deposit.amount} | ${datePart}`;
+          li.textContent = `${lineType} $${dep.amount} | ${datePart}`;
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.style.marginLeft = "1rem";
-          delBtn.onclick = () => deleteDeposit(deposit.id);
+          delBtn.onclick = () => deleteDeposit(dep.id);
 
           li.appendChild(delBtn);
           ul.appendChild(li);
@@ -127,7 +127,9 @@
     async function deleteDeposit(txnId) {
       if (!confirm("Delete this deposit?")) return;
       try {
-        const res = await fetch(`${API_BASE}/transactions/${txnId}`, { method: "DELETE" });
+        const res = await fetch(`${API_BASE}/transactions/${txnId}`, {
+          method: "DELETE"
+        });
         if (!res.ok) throw new Error("Failed to delete deposit");
         loadBalance();
         loadDeposits();

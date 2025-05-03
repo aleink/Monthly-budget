@@ -35,7 +35,7 @@
   </div>
 
   <script>
-    // MAKE SURE YOU INCLUDE THE TRAILING SLASH /categories/
+    // Use your ngrok domain:
     const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -45,13 +45,12 @@
 
     async function loadCategories() {
       try {
-        const res = await fetch(`${API_BASE}/categories/`); // <--- trailing slash
+        const res = await fetch(`${API_BASE}/categories/`);  // /categories/ with slash
         if (!res.ok) throw new Error("Failed to load categories");
         const data = await res.json();
         const ul = document.getElementById("catList");
         ul.innerHTML = "";
         data.forEach(cat => {
-          // e.g. "Market: Monthly $1000 | Bi-Weekly $500"
           let display = `${cat.name}: `;
           if (cat.monthly_budget !== "0.00") {
             display += `Monthly $${cat.monthly_budget} `;
@@ -95,7 +94,7 @@
       };
 
       try {
-        const res = await fetch(`${API_BASE}/categories/`, { // <--- trailing slash
+        const res = await fetch(`${API_BASE}/categories/`, {  // with slash
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify(body)

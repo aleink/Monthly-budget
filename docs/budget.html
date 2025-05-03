@@ -42,8 +42,7 @@
 
     async function loadBudget() {
       try {
-        // trailing slash => /budget/
-        const res = await fetch(`${API_BASE}/budget/`);
+        const res = await fetch(`${API_BASE}/budget/`);  // trailing slash
         if (!res.ok) throw new Error("Failed to fetch budget");
         const data = await res.json();
 
@@ -51,7 +50,6 @@
           document.getElementById("availableCash").textContent = data.message;
           return;
         }
-
         document.getElementById("availableCash").textContent = `$${data.available_cash}`;
 
         const container = document.getElementById("budgetCard");
@@ -60,10 +58,10 @@
 
         data.categories.forEach(cat => {
           let maxBudget = cat.is_rent ? parseFloat(cat.monthly_budget) : parseFloat(cat.biweekly_budget);
-          if (maxBudget <= 0) maxBudget = 1; 
+          if (maxBudget <= 0) maxBudget = 1;
           const current = parseFloat(cat.current_envelope);
           const rawPct = (current / maxBudget) * 100;
-          const pct = Math.max(0, Math.min(100, rawPct)); 
+          const pct = Math.max(0, Math.min(100, rawPct));
 
           const leftoverStr = current.toFixed(2);
           const maxStr = maxBudget.toFixed(2);
