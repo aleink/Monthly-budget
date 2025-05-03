@@ -35,7 +35,10 @@
   </div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:8000";
+    // =============================================
+    // Point this to your ngrok forwarding URL:
+    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    // =============================================
 
     document.addEventListener("DOMContentLoaded", () => {
       loadCategories();
@@ -50,7 +53,7 @@
         const ul = document.getElementById("catList");
         ul.innerHTML = "";
         data.forEach(cat => {
-          // Format something like "Market: Monthly $1000 | Bi-Weekly $500"
+          // "Market: Monthly $1000 | Bi-Weekly $500"
           let display = `${cat.name}: `;
           if (cat.monthly_budget !== "0.00") {
             display += `Monthly $${cat.monthly_budget} `;

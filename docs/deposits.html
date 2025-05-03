@@ -38,7 +38,10 @@
   </div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:8000";
+    // =============================================
+    // Use your ngrok forwarding URL here:
+    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    // =============================================
 
     document.addEventListener("DOMContentLoaded", () => {
       loadBalance();
@@ -73,7 +76,6 @@
         return;
       }
 
-      // We'll create a transaction with type=paycheck or atm
       const body = {
         type: depType,
         amount
@@ -89,7 +91,6 @@
           const txt = await res.text();
           throw new Error(txt);
         }
-        // success
         document.getElementById("depAmount").value = "";
         loadBalance();
         loadDeposits();
@@ -104,21 +105,17 @@
         const res = await fetch(`${API_BASE}/transactions`);
         if (!res.ok) throw new Error("Failed to fetch transactions");
         const txns = await res.json();
-
-        // Filter out transactions that are "paycheck" or "atm"
         const deposits = txns.filter(t => t.type === "paycheck" || t.type === "atm");
 
         const ul = document.getElementById("depositList");
         ul.innerHTML = "";
 
         deposits.forEach(deposit => {
-          // Build a line like "Paycheck $500.00 | 2025-05-02"
           const datePart = deposit.timestamp.split("T")[0];
           const lineType = deposit.type === "paycheck" ? "Paycheck" : "ATM";
           const li = document.createElement("li");
           li.textContent = `${lineType} $${deposit.amount} | ${datePart}`;
 
-          // Delete button
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.style.marginLeft = "1rem";

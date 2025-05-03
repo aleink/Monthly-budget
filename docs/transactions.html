@@ -35,9 +35,12 @@
   </div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:8000";
+    // =============================================
+    // The domain from ngrok:
+    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    // =============================================
 
-    let categoryMap = {}; // { catId: catName }
+    let categoryMap = {}; // For storing catId -> catName
 
     document.addEventListener("DOMContentLoaded", async () => {
       await loadCategories();
@@ -50,11 +53,10 @@
         const res = await fetch(`${API_BASE}/categories`);
         if (!res.ok) throw new Error("Could not load categories");
         const cats = await res.json();
-
         const sel = document.getElementById("txnCategory");
         sel.innerHTML = "";
         cats.forEach(cat => {
-          categoryMap[cat.id] = cat.name; // store for later usage
+          categoryMap[cat.id] = cat.name;
           const opt = document.createElement("option");
           opt.value = cat.id;
           opt.textContent = cat.name;
@@ -104,22 +106,20 @@
         if(!res.ok) throw new Error("Could not load transactions");
         const allTxns = await res.json();
 
-        // Filter out anything that isn't expense or rent_expense
+        // Filter only expense or rent_expense
         const expenseTxns = allTxns.filter(t => t.type === "expense" || t.type === "rent_expense");
 
         const ul = document.getElementById("expenseList");
         ul.innerHTML = "";
 
         expenseTxns.forEach(txn => {
-          // Build a line: "Market: $35.52 | 2025-05-02"
           let catName = categoryMap[txn.category_id] || "Unknown";
-          let datePart = txn.timestamp.split("T")[0]; // "2025-05-02"
+          let datePart = txn.timestamp.split("T")[0];
           let line = `${catName}: $${txn.amount} | ${datePart}`;
 
           const li = document.createElement("li");
           li.textContent = line;
 
-          // Delete button
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.style.marginLeft = "1rem";

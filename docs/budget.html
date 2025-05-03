@@ -6,7 +6,6 @@
   <title>Budget Status</title>
   <link rel="stylesheet" href="assets/style.css"/>
   <style>
-    /* Example styling for a progress container and bar */
     .progress-container {
       background-color: #e9ecef;
       border-radius: 0.25rem;
@@ -16,7 +15,7 @@
       overflow: hidden;
     }
     .progress-bar {
-      background-color: #28a745; /* green */
+      background-color: #28a745;
       height: 100%;
       transition: width 0.4s ease;
     }
@@ -37,7 +36,10 @@
   <div class="card" id="budgetCard"></div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:8000";
+    // =============================================
+    // Point to your ngrok domain:
+    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    // =============================================
 
     document.addEventListener("DOMContentLoaded", loadBudget);
 
@@ -57,24 +59,21 @@
         const container = document.getElementById("budgetCard");
         container.innerHTML = `<h2>Categories</h2>`;
         let html = "<ul>";
-        data.categories.forEach(cat => {
-          // Decide the "max" budget
-          let maxBudget = cat.is_rent ? parseFloat(cat.monthly_budget) : parseFloat(cat.biweekly_budget);
-          if (maxBudget <= 0) maxBudget = 1; // Avoid division by 0
 
+        data.categories.forEach(cat => {
+          // decide the max budget
+          let maxBudget = cat.is_rent ? parseFloat(cat.monthly_budget) : parseFloat(cat.biweekly_budget);
+          if (maxBudget <= 0) maxBudget = 1; // avoid division by 0
           const current = parseFloat(cat.current_envelope);
           const rawPct = (current / maxBudget) * 100;
-          const pct = Math.max(0, Math.min(100, rawPct)); // clamp to [0..100]
+          // clamp to [0..100]
+          const pct = Math.max(0, Math.min(100, rawPct));
 
-          // Format something like "$-350.00 left of $500.00 (some %)"
-          // or if current < 0, you might show negative leftover, up to you
           const leftoverStr = current.toFixed(2);
           const maxStr = maxBudget.toFixed(2);
-
           let line = `<strong>${cat.name}</strong>: $${leftoverStr} left of $${maxStr} `;
           let percentLine = `(${rawPct.toFixed(1)}%)`;
 
-          // We'll build a progress bar
           let barHTML = `
             <div class="progress-container">
               <div class="progress-bar" style="width:${pct}%;"></div>
@@ -90,7 +89,6 @@
         });
         html += "</ul>";
         container.innerHTML += html;
-
       } catch(err) {
         console.error(err);
         alert("Error loading budget: " + err.message);
