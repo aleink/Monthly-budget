@@ -41,14 +41,21 @@
 <style>
   .viewModeControls {
     display: flex;
+    flex-wrap: wrap;       /* allows wrapping on small screens */
     align-items: center;
     gap: 1rem;
   }
   .viewModeControls label {
-    margin: 0;
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.3rem;           /* spacing between radio and text */
+  }
+  /* Optional: further media queries if desired */
+  @media (max-width: 400px) {
+    .viewModeControls {
+      flex-direction: column;
+      align-items: flex-start; /* stack items vertically on very narrow screens */
+    }
   }
 </style>
 
