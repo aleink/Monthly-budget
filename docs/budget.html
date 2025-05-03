@@ -43,13 +43,34 @@
 
   <!-- Toggle for H1/H2 in a card -->
   <div class="card">
-    <h2>View Mode</h2>
-    <div class="viewModeControls">
-      <label><input type="radio" name="halfToggle" value="H1" checked> First Half</label>
-      <label><input type="radio" name="halfToggle" value="H2"> Second Half</label>
-      <button id="toggleReloadBtn" class="btn">Reload</button>
-    </div>
+  <h2>View Mode</h2>
+  <div class="viewModeControls">
+    <label><input type="radio" name="halfToggle" value="H1" checked> First Half</label>
+    <label><input type="radio" name="halfToggle" value="H2"> Second Half</label>
+    <button id="toggleReloadBtn" class="btn">Reload</button>
   </div>
+</div>
+
+<style>
+  .viewModeControls {
+    display: flex;
+    flex-wrap: wrap;  /* allows wrapping on smaller screens */
+    align-items: center;
+    gap: 1rem;        /* spacing between items */
+  }
+  .viewModeControls label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;      /* space between radio & text */
+  }
+  @media (max-width: 450px) {
+    /* stack items in a column when screen is very narrow */
+    .viewModeControls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
 
   <div class="card">
     <h2>Cashflow</h2>
