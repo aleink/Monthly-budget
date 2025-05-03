@@ -35,7 +35,7 @@
   </div>
 
   <script>
-    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    const API_BASE = "https://0829-70-175-49-108.ngrok-free.app";
     let categoryMap = {};
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -46,7 +46,7 @@
 
     async function loadCategories() {
       try {
-        // /categories/ with slash
+        // GET /categories/
         const res = await fetch(`${API_BASE}/categories/`);
         if (!res.ok) throw new Error("Could not load categories");
         const cats = await res.json();
@@ -102,7 +102,6 @@
         const res = await fetch(`${API_BASE}/transactions/`);
         if(!res.ok) throw new Error("Could not load transactions");
         const allTxns = await res.json();
-        // Filter for expense or rent_expense
         const expenseTxns = allTxns.filter(t => t.type === "expense" || t.type === "rent_expense");
 
         const ul = document.getElementById("expenseList");

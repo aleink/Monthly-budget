@@ -36,13 +36,14 @@
   <div class="card" id="budgetCard"></div>
 
   <script>
-    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    const API_BASE = "https://0829-70-175-49-108.ngrok-free.app";
 
     document.addEventListener("DOMContentLoaded", loadBudget);
 
     async function loadBudget() {
       try {
-        const res = await fetch(`${API_BASE}/budget/`);  // trailing slash
+        // GET /budget/
+        const res = await fetch(`${API_BASE}/budget/`);
         if (!res.ok) throw new Error("Failed to fetch budget");
         const data = await res.json();
 

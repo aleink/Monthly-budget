@@ -35,8 +35,8 @@
   </div>
 
   <script>
-    // Use your ngrok domain:
-    const API_BASE = "https://6a9f-70-175-49-108.ngrok-free.app";
+    // Update domain to your new ngrok URL:
+    const API_BASE = "https://0829-70-175-49-108.ngrok-free.app";
 
     document.addEventListener("DOMContentLoaded", () => {
       loadCategories();
@@ -45,7 +45,7 @@
 
     async function loadCategories() {
       try {
-        const res = await fetch(`${API_BASE}/categories/`);  // /categories/ with slash
+        const res = await fetch(`${API_BASE}/categories/`); 
         if (!res.ok) throw new Error("Failed to load categories");
         const data = await res.json();
         const ul = document.getElementById("catList");
@@ -94,7 +94,7 @@
       };
 
       try {
-        const res = await fetch(`${API_BASE}/categories/`, {  // with slash
+        const res = await fetch(`${API_BASE}/categories/`, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify(body)
