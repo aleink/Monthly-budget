@@ -30,12 +30,28 @@
   </header>
 
   <div class="card">
-    <h2>View Mode</h2>
-    <!-- Toggle for first half or second half -->
+  <h2>View Mode</h2>
+  <div class="viewModeControls">
     <label><input type="radio" name="halfToggle" value="H1" checked> First Half</label>
     <label><input type="radio" name="halfToggle" value="H2"> Second Half</label>
-    <button id="toggleReloadBtn">Reload</button>
+    <button id="toggleReloadBtn" class="btn">Reload</button>
   </div>
+</div>
+
+<style>
+  .viewModeControls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .viewModeControls label {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+</style>
+
 
   <div class="card">
     <h2>Cashflow</h2>
