@@ -3,255 +3,143 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Budget - Two Cycles</title>
+  <title>Categories - Two Cycles</title>
   <link rel="stylesheet" href="assets/style.css"/>
-  <style>
-    .progress-container {
-      background-color: #e9ecef;
-      border-radius: 0.25rem;
-      height: 20px;
-      width: 100%;
-      margin-top: 0.5rem;
-      overflow: hidden;
-    }
-    .progress-bar {
-      background-color: #28a745;
-      height: 100%;
-      transition: width 0.4s ease;
-    }
-    .card ul { list-style: none; padding-left: 0; }
-    .card li { margin-bottom: 1rem; }
-
-    .viewModeControls {
-      display: flex;
-      flex-wrap: wrap;  /* mobile-friendly */
-      align-items: center;
-      gap: 1rem;
-    }
-    .viewModeControls label {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-  </style>
 </head>
 <body>
   <header>
     <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Budget Status</h1>
+    <h1>Categories</h1>
   </header>
 
   <div class="card">
-  <h2>View Mode</h2>
-  <div class="viewModeControls">
-    <label><input type="radio" name="cycleToggle" value="C1" checked> Cycle 1</label>
-    <label><input type="radio" name="cycleToggle" value="C2"> Cycle 2</label>
-    <button id="reloadBtn" class="btn">Reload</button>
-  </div>
-</div>
+    <h2>Add Category</h2>
+    <label for="catName">Name</label>
+    <input type="text" id="catName" placeholder="e.g. Groceries"/><br><br>
 
-<style>
-  .viewModeControls {
-    display: flex;
-    flex-wrap: wrap;    /* allows wrapping on smaller screens */
-    align-items: center;
-    gap: 1rem;          /* spacing between items */
-  }
-  .viewModeControls label {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;        /* space between radio and text */
-  }
-  @media (max-width: 450px) {
-    /* Stack items in a column when the screen is narrow */
-    .viewModeControls {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  }
-</style>
+    <label for="catC1">Cycle 1 Budget ($)</label>
+    <input type="number" step="0.01" id="catC1" placeholder="e.g. 200"/><br><br>
 
-  <div class="card">
-    <h2>Cashflow</h2>
-    <div id="cashflow"></div>
+    <label for="catC2">Cycle 2 Budget ($)</label>
+    <input type="number" step="0.01" id="catC2" placeholder="e.g. 300"/><br><br>
+
+    <button id="addCatBtn" class="btn">Add Category</button>
   </div>
 
   <div class="card">
-    <h2>Per-Category Leftover</h2>
-    <ul id="catBudgetList"></ul>
+    <h2>Existing Categories</h2>
+    <ul id="catList"></ul>
   </div>
 
   <script type="module">
     import { db } from "./firebase.js";
     import {
-      collection, getDocs, doc, updateDoc
+      collection, addDoc, getDocs, deleteDoc, doc, updateDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    let currentCycle = "C1";
+    const addCatBtn = document.getElementById("addCatBtn");
+    const catName   = document.getElementById("catName");
+    const catC1     = document.getElementById("catC1");
+    const catC2     = document.getElementById("catC2");
+    const catList   = document.getElementById("catList");
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const radios = document.getElementsByName("cycleToggle");
-      radios.forEach(radio => {
-        radio.addEventListener("change", () => {
-          currentCycle = radio.value;
-        });
-      });
-      document.getElementById("reloadBtn").addEventListener("click", loadBudget);
+    document.addEventListener("DOMContentLoaded", loadCategoriesUI);
+    addCatBtn.addEventListener("click", createCategory);
 
-      loadBudget();
-    });
-
-    async function loadBudget() {
-      // read which cycle is checked
-      const radios = document.getElementsByName("cycleToggle");
-      for (let r of radios) {
-        if (r.checked) {
-          currentCycle = r.value;
-          break;
-        }
-      }
-
-      const cashflowEl = document.getElementById("cashflow");
-      const catBudgetList = document.getElementById("catBudgetList");
-
+    async function loadCategoriesUI() {
+      catList.innerHTML = "";
       try {
-        // 1) sum all deposits
-        const depSnap = await getDocs(collection(db, "deposits"));
-        let allDeps = [];
-        depSnap.forEach(docSnap => {
-          allDeps.push({ ...docSnap.data() });
-        });
-        let totalDeposits = allDeps.reduce((sum, d) => sum + (d.amount||0), 0);
-
-        // 2) gather expense transactions
-        const txnSnap = await getDocs(collection(db, "transactions"));
-        let allTxns = [];
-        txnSnap.forEach(docSnap => {
-          allTxns.push({ ...docSnap.data() });
-        });
-        // filter expense or rent_expense
-        const expenseTxns = allTxns.filter(t => t.type==="expense" || t.type==="rent_expense");
-        let totalExpenses = expenseTxns.reduce((sum,e)=> sum+(e.amount||0), 0);
-
-        let overallCash = totalDeposits - totalExpenses;
-
-        // 3) fetch categories
-        const catSnap = await getDocs(collection(db, "categories"));
-        let categories = [];
-        catSnap.forEach(docSnap => {
-          categories.push({ id: docSnap.id, ...docSnap.data() });
+        const snap = await getDocs(collection(db, "categories"));
+        let cats = [];
+        snap.forEach(docSnap => {
+          cats.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // 4) build a spent map for cycle1 and cycle2
-        let spentC1 = {};
-        let spentC2 = {};
-        expenseTxns.forEach(txn => {
-          let cId= txn.categoryId;
-          let cyc= txn.cycle||"C1";
-          if (cyc==="C1") {
-            if (!spentC1[cId]) spentC1[cId]=0;
-            spentC1[cId]+= txn.amount;
-          } else {
-            if (!spentC2[cId]) spentC2[cId]=0;
-            spentC2[cId]+= txn.amount;
-          }
-        });
-
-        // For the top-level leftover sum in the selected cycle
-        let totalAlloc=0;    // sum of all categories' budget for that cycle
-        let totalLeft=0;     // sum of leftover across all categories
-
-        // 5) compute leftover for each category in the selected cycle
-        catBudgetList.innerHTML="";
-        categories.forEach(cat => {
-          if (!cat.spentReset1) cat.spentReset1=0;
-          if (!cat.spentReset2) cat.spentReset2=0;
-
-          let c1Budget= cat.cycle1||0;
-          let c2Budget= cat.cycle2||0;
-          let c1Spent= spentC1[cat.id]||0;
-          let c2Spent= spentC2[cat.id]||0;
-
-          let leftover=0, budgetVal=0, displayLeft=0, spentReset=0;
-          let label="";
-
-          if (currentCycle==="C1") {
-            budgetVal= c1Budget;
-            spentReset= cat.spentReset1||0;
-            leftover = budgetVal - (c1Spent - spentReset);
-            label = `(Cycle 1)`;
-          } else {
-            budgetVal= c2Budget;
-            spentReset= cat.spentReset2||0;
-            leftover = budgetVal - (c2Spent - spentReset);
-            label = `(Cycle 2)`;
-          }
-
-          // leftover can be negative if overspent
-          displayLeft = leftover<0 ? 0 : leftover; // for bar display
-          totalAlloc += budgetVal;      // add to total cycle budget
-          if (leftover>0) totalLeft+= leftover; // sum leftover, ignoring negative
-
-          let pct=0;
-          if (budgetVal>0) {
-            pct= (displayLeft/budgetVal)*100;
-          }
-
-          // create the list item
+        cats.forEach(cat => {
           const li = document.createElement("li");
-          li.innerHTML=`
-            <strong>${cat.name} ${label}: $${displayLeft.toFixed(2)} left of $${budgetVal.toFixed(2)} (${pct.toFixed(1)}%)</strong>
-            <div class="progress-container">
-              <div class="progress-bar" style="width:${pct}%;"></div>
-            </div>
-          `;
+          const c1 = cat.cycle1 || 0;
+          const c2 = cat.cycle2 || 0;
+          const line = `${cat.name}: C1=$${c1} | C2=$${c2}`;
+          li.textContent = line;
 
-          // add reset button
-          const resetBtn = document.createElement("button");
-          resetBtn.textContent = "Reset Budget";
-          resetBtn.style.marginLeft="1rem";
-          resetBtn.onclick= async () => {
-            if (confirm(`Reset '${cat.name}' for cycle ${currentCycle}?`)) {
-              // we only reset the spentReset for the chosen cycle
-              if (currentCycle==="C1") {
-                const totalSpent = c1Spent; // total spent for cycle1
-                await updateDoc(doc(db,"categories", cat.id), {
-                  spentReset1: totalSpent
-                });
-              } else {
-                const totalSpent= c2Spent; // total spent for cycle2
-                await updateDoc(doc(db,"categories", cat.id), {
-                  spentReset2: totalSpent
-                });
-              }
-              loadBudget();
+          // Delete button
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "Delete";
+          delBtn.style.marginLeft = "1rem";
+          delBtn.onclick = async () => {
+            if (confirm(`Delete category "${cat.name}"?`)) {
+              await deleteDoc(doc(db, "categories", cat.id));
+              loadCategoriesUI();
             }
           };
-          li.appendChild(resetBtn);
 
-          catBudgetList.appendChild(li);
+          // Edit button
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Edit";
+          editBtn.style.marginLeft = "1rem";
+          editBtn.onclick = async () => {
+            editCategory(cat);
+          };
+
+          li.appendChild(delBtn);
+          li.appendChild(editBtn);
+          catList.appendChild(li);
         });
-
-        // 6) display overall info in the “cashflow” area
-        // totalAlloc is how much was allocated across all categories for the selected cycle
-        // totalLeft is how much leftover across all categories (clamped ignoring negative)
-        let cyclePct=0;
-        if (totalAlloc>0) cyclePct= (totalLeft/ totalAlloc)*100;
-
-        cashflowEl.innerHTML=`
-          <p>Total Deposits = $${totalDeposits.toFixed(2)}</p>
-          <p>Total Expenses = $${totalExpenses.toFixed(2)}</p>
-          <strong style="font-size:1.1em;">Available Cash = $${overallCash.toFixed(2)}</strong>
-          <br><br>
-          <h3>Selected Cycle: ${currentCycle}</h3>
-          <p>Allocated: $${totalAlloc.toFixed(2)}, Leftover: $${totalLeft.toFixed(2)}</p>
-          <div class="progress-container">
-            <div class="progress-bar" style="width:${cyclePct}%;"></div>
-          </div>
-        `;
-
       } catch(err) {
-        catBudgetList.innerHTML= `<li>Error: ${err.message}</li>`;
+        alert("Error loading categories: " + err.message);
+      }
+    }
+
+    async function createCategory() {
+      const nameVal = catName.value.trim();
+      if (!nameVal) {
+        alert("Please enter a category name.");
+        return;
+      }
+      const c1Val = parseFloat(catC1.value) || 0;
+      const c2Val = parseFloat(catC2.value) || 0;
+
+      try {
+        await addDoc(collection(db, "categories"), {
+          name: nameVal,
+          cycle1: c1Val,
+          cycle2: c2Val,
+          spentReset1: 0,
+          spentReset2: 0
+        });
+        catName.value = "";
+        catC1.value   = "";
+        catC2.value   = "";
+        loadCategoriesUI();
+      } catch(err) {
+        alert("Error creating category: " + err.message);
+      }
+    }
+
+    async function editCategory(catObj) {
+      // Prompt user for new cycle1/cycle2 budgets
+      const newC1 = prompt(
+        `Enter new Cycle 1 budget for "${catObj.name}":`,
+        (catObj.cycle1 || 0).toString()
+      );
+      if (newC1 === null) return; // user cancelled
+      const newC1Val = parseFloat(newC1) || 0;
+
+      const newC2 = prompt(
+        `Enter new Cycle 2 budget for "${catObj.name}":`,
+        (catObj.cycle2 || 0).toString()
+      );
+      if (newC2 === null) return; // user cancelled
+      const newC2Val = parseFloat(newC2) || 0;
+
+      try {
+        await updateDoc(doc(db, "categories", catObj.id), {
+          cycle1: newC1Val,
+          cycle2: newC2Val
+        });
+        loadCategoriesUI();
+      } catch(err) {
+        alert("Error editing category: " + err.message);
       }
     }
   </script>
