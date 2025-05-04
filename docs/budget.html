@@ -42,13 +42,34 @@
   </header>
 
   <div class="card">
-    <h2>View Mode</h2>
-    <div class="viewModeControls">
-      <label><input type="radio" name="cycleToggle" value="C1" checked> Cycle 1</label>
-      <label><input type="radio" name="cycleToggle" value="C2"> Cycle 2</label>
-      <button id="reloadBtn" class="btn">Reload</button>
-    </div>
+  <h2>View Mode</h2>
+  <div class="viewModeControls">
+    <label><input type="radio" name="cycleToggle" value="C1" checked> Cycle 1</label>
+    <label><input type="radio" name="cycleToggle" value="C2"> Cycle 2</label>
+    <button id="reloadBtn" class="btn">Reload</button>
   </div>
+</div>
+
+<style>
+  .viewModeControls {
+    display: flex;
+    flex-wrap: wrap;    /* allows wrapping on smaller screens */
+    align-items: center;
+    gap: 1rem;          /* spacing between items */
+  }
+  .viewModeControls label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;        /* space between radio and text */
+  }
+  @media (max-width: 450px) {
+    /* Stack items in a column when the screen is narrow */
+    .viewModeControls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
 
   <div class="card">
     <h2>Cashflow</h2>
