@@ -34,15 +34,20 @@
   <script type="module">
     import { db } from "./firebase.js";
     import {
-      collection, addDoc, getDocs, deleteDoc, doc
+      collection,
+      addDoc,
+      getDocs,
+      deleteDoc,
+      doc,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     const addCatBtn = document.getElementById("addCatBtn");
-    const catName = document.getElementById("catName");
-    const catC1   = document.getElementById("catC1");
-    const catC2   = document.getElementById("catC2");
+    const catName   = document.getElementById("catName");
+    const catC1     = document.getElementById("catC1");
+    const catC2     = document.getElementById("catC2");
 
-    const catList = document.getElementById("catList");
+    const catList   = document.getElementById("catList");
 
     document.addEventListener("DOMContentLoaded", loadCategoriesUI);
     addCatBtn.addEventListener("click", createCategory);
@@ -58,12 +63,12 @@
 
         cats.forEach(cat => {
           const li = document.createElement("li");
-          // example: "Groceries: C1=$200, C2=$300"
           const c1 = cat.cycle1 || 0;
           const c2 = cat.cycle2 || 0;
           const line = `${cat.name}: C1=$${c1} | C2=$${c2}`;
           li.textContent = line;
 
+          // Delete button
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.style.marginLeft = "1rem";
@@ -74,7 +79,14 @@
             }
           };
 
+          // Edit button
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Edit";
+          editBtn.style.marginLeft = "1rem";
+          editBtn.onclick = () => editCategory(cat);
+
           li.appendChild(delBtn);
+          li.appendChild(editBtn);
           catList.appendChild(li);
         });
       } catch(err) {
@@ -105,6 +117,33 @@
         loadCategoriesUI();
       } catch(err) {
         alert("Error creating category: " + err.message);
+      }
+    }
+
+    async function editCategory(catObj) {
+      // Prompt for new cycle1 / cycle2 budgets
+      const newC1 = prompt(
+        `Enter new Cycle 1 budget for "${catObj.name}":`,
+        (catObj.cycle1 || 0).toString()
+      );
+      if (newC1 === null) return; // user cancelled
+      const newC1Val = parseFloat(newC1) || 0;
+
+      const newC2 = prompt(
+        `Enter new Cycle 2 budget for "${catObj.name}":`,
+        (catObj.cycle2 || 0).toString()
+      );
+      if (newC2 === null) return; // user cancelled
+      const newC2Val = parseFloat(newC2) || 0;
+
+      try {
+        await updateDoc(doc(db, "categories", catObj.id), {
+          cycle1: newC1Val,
+          cycle2: newC2Val
+        });
+        loadCategoriesUI();
+      } catch(err) {
+        alert("Error editing category: " + err.message);
       }
     }
   </script>
