@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Transactions - Budget Bot</title>
+  <title>Transactions - Two Cycles</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
@@ -15,25 +15,25 @@
   <div class="card">
     <h2>Create Expense</h2>
 
-    <label for="txnType">Type</label>
+    <label>Type</label>
     <select id="txnType">
       <option value="expense">Expense</option>
       <option value="rent_expense">Rent Expense</option>
     </select>
     <br><br>
 
-    <label for="txnCat">Category</label>
+    <label>Category</label>
     <select id="txnCat"></select>
     <br><br>
 
-    <label for="txnHalf">Which half?</label>
-    <select id="txnHalf">
-      <option value="H1">First Half</option>
-      <option value="H2">Second Half</option>
+    <label>Which cycle?</label>
+    <select id="txnCycle">
+      <option value="C1">Cycle 1</option>
+      <option value="C2">Cycle 2</option>
     </select>
     <br><br>
 
-    <label for="txnAmt">Amount ($)</label>
+    <label>Amount ($)</label>
     <input type="number" step="0.01" id="txnAmt" placeholder="e.g. 50.00"/>
     <br><br>
 
@@ -48,21 +48,16 @@
   <script type="module">
     import { db } from "./firebase.js";
     import {
-      collection,
-      addDoc,
-      getDocs,
-      deleteDoc,
-      doc
+      collection, getDocs, addDoc, deleteDoc, doc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    const txnTypeEl  = document.getElementById("txnType");
-    const txnCatEl   = document.getElementById("txnCat");
-    const txnHalfEl  = document.getElementById("txnHalf");
-    const txnAmtEl   = document.getElementById("txnAmt");
-    const txnAddBtn  = document.getElementById("txnAddBtn");
-    const txnListEl  = document.getElementById("txnList");
+    const txnTypeEl   = document.getElementById("txnType");
+    const txnCatEl    = document.getElementById("txnCat");
+    const txnCycleEl  = document.getElementById("txnCycle");
+    const txnAmtEl    = document.getElementById("txnAmt");
+    const txnAddBtn   = document.getElementById("txnAddBtn");
+    const txnListEl   = document.getElementById("txnList");
 
-    // On page load
     document.addEventListener("DOMContentLoaded", async () => {
       await loadCategories();
       await loadExpenses();
@@ -89,33 +84,32 @@
     }
 
     async function createExpense() {
-      const typeVal = txnTypeEl.value;
-      const catIdVal = txnCatEl.value;
-      const halfVal  = txnHalfEl.value;
+      const typeVal  = txnTypeEl.value;
+      const catVal   = txnCatEl.value;
+      const cycVal   = txnCycleEl.value;
       const amtVal   = parseFloat(txnAmtEl.value.trim()) || 0;
 
-      if (!catIdVal) {
-        alert("Please select a category.");
+      if (!catVal) {
+        alert("Select a category.");
         return;
       }
-      if (!halfVal) {
-        alert("Please select which half (H1 or H2).");
+      if (!cycVal) {
+        alert("Select which cycle (C1 or C2).");
         return;
       }
       if (amtVal <= 0) {
-        alert("Please enter a valid positive amount.");
+        alert("Enter a positive amount.");
         return;
       }
 
       try {
         await addDoc(collection(db, "transactions"), {
-          type:       typeVal,
-          categoryId: catIdVal,
-          half:       halfVal,
-          amount:     amtVal,
-          timestamp:  new Date().toISOString()
+          type: typeVal,
+          categoryId: catVal,
+          cycle: cycVal,
+          amount: amtVal,
+          timestamp: new Date().toISOString()
         });
-        // Clear input
         txnAmtEl.value = "";
         loadExpenses();
       } catch(err) {
@@ -126,19 +120,18 @@
     async function loadExpenses() {
       try {
         const snap = await getDocs(collection(db, "transactions"));
-        const txns = [];
+        const allTxns = [];
         snap.forEach(docSnap => {
-          txns.push({ id: docSnap.id, ...docSnap.data() });
+          allTxns.push({ id: docSnap.id, ...docSnap.data() });
         });
-
         // filter only expense or rent_expense
-        const expenseTxns = txns.filter(t => t.type === "expense" || t.type === "rent_expense");
+        const expenseTxns = allTxns.filter(t => t.type==="expense" || t.type==="rent_expense");
 
         txnListEl.innerHTML = "";
         expenseTxns.forEach(txn => {
           const li = document.createElement("li");
           const dateStr = txn.timestamp ? txn.timestamp.split("T")[0] : "";
-          li.textContent = `${txn.type} $${txn.amount} half=${txn.half} cat=${txn.categoryId} on ${dateStr}`;
+          li.textContent = `${txn.type} $${txn.amount}, cycle=${txn.cycle}, cat=${txn.categoryId}, date=${dateStr}`;
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
@@ -150,6 +143,7 @@
             }
           };
           li.appendChild(delBtn);
+
           txnListEl.appendChild(li);
         });
       } catch(err) {
