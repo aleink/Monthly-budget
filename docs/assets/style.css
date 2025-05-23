@@ -140,14 +140,14 @@ header {
     display: flex;
     flex-wrap: wrap; /* Allow items to wrap */
     justify-content: space-between; /* Space title/toggle and nav */
-    align-items: center;
-    border-bottom: 1px solid var(--separator-color); /* Use separator color for header border */
+    align-items: center; /* Vertically align items in the branding row */
+    /* border-bottom: 1px solid var(--separator-color); Removed to let tabs merge with content */
     box-shadow: var(--shadow-sm);
 }
 html[data-theme="dark"] header {
     background-color: var(--card-background-color); 
-    color: var(--text-color-dark); /* Primary text color for dark mode */
-    border-bottom: 1px solid var(--separator-color);
+    color: var(--text-color-dark); 
+    /* border-bottom: 1px solid var(--separator-color); */
 }
 
 
@@ -183,63 +183,99 @@ html[data-theme="dark"] #theme-toggle {
 
 
 nav {
-    background-color: transparent;
-    padding: 0;
-    width: auto; /* Allow nav to size based on content or wrap */
-    margin-top: 0.25rem; /* If it wraps, add some space */
+    background-color: transparent; /* Nav container itself is transparent */
+    padding: 0; /* Remove padding from nav container */
+    width: 100%; /* Nav takes full width below branding or to the side */
+    margin-top: 0; /* Reset margin, tabs will manage their own spacing */
+    overflow-x: auto; /* Enable horizontal scrolling for tabs */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Firefox scrollbar styling */
+    scrollbar-color: var(--border-color) var(--background-color); /* Firefox scrollbar styling */
 }
+/* Webkit scrollbar styling */
+nav::-webkit-scrollbar {
+    height: 5px; /* Height of the scrollbar */
+}
+nav::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+nav::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+nav::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-text-color);
+}
+
 
 nav ul {
     list-style: none;
-    padding: 0;
+    padding: 0 0.5rem; /* Add padding to ul for spacing from screen edges if scrolling */
     margin: 0;
     display: flex;
-    flex-wrap: wrap; /* Allow tabs to wrap */
-    justify-content: flex-start; /* Align tabs to the left within nav */
-    border-bottom: none; /* Remove any previous border from ul */
+    flex-wrap: nowrap; /* Prevent tabs from wrapping to next line */
+    justify-content: flex-start; 
+    border-bottom: 1px solid var(--separator-color); /* Line for tabs to sit on */
 }
 
 nav li {
-    margin: 0; /* Remove li margin, use padding on 'a' */
+    margin: 0; 
+    flex-shrink: 0; /* Prevent tabs from shrinking */
 }
 
 nav a {
-    color: var(--secondary-text-color); /* Use secondary text for non-active tabs */
+    color: var(--secondary-text-color); 
     text-decoration: none;
-    padding: 0.6rem 0.8rem; /* Padding for tab size */
-    display: block; /* Make 'a' block for padding and border */
-    border-bottom: 3px solid transparent; /* Placeholder for active state */
-    margin-right: 0.25rem; /* Small space between tabs */
+    padding: 0.75rem 1rem; /* Increased padding for better tab feel */
+    display: block; 
+    border: 1px solid transparent; /* Default border */
+    border-bottom: none; /* Remove bottom border by default */
+    margin-right: 2px; /* Tiny space between tabs */
+    margin-top: 1px; /* To make tabs appear slightly above the header's bottom line */
+    border-top-left-radius: var(--default-border-radius);
+    border-top-right-radius: var(--default-border-radius);
     font-weight: 500;
     font-size: 0.9rem;
-    border-radius: 0; /* Remove previous border radius */
-    transition: color 0.2s ease, border-bottom-color 0.2s ease;
+    background-color: var(--background-color); /* Slightly different bg for non-active tabs */
+    position: relative; /* For z-index or pseudo-elements if needed */
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 html[data-theme="dark"] nav a {
     color: var(--secondary-text-color);
+    background-color: var(--background-color); /* Darker background for non-active tabs */
 }
 
 
 nav a:hover {
-    color: var(--primary-color); /* Use primary color on hover for text */
-    border-bottom-color: var(--primary-color); /* Show border on hover */
-    background-color: transparent; /* No background on hover */
+    color: var(--primary-color); 
+    background-color: var(--card-background-color); /* Show card bg on hover, like active */
+    border-color: var(--separator-color);
+    border-bottom-color: transparent; /* Keep bottom transparent on hover for non-active */
     text-decoration: none;
 }
 html[data-theme="dark"] nav a:hover {
     color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
+    background-color: var(--card-background-color);
+    border-color: var(--separator-color);
+    border-bottom-color: transparent;
 }
 
 nav a.active {
-    color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
-    font-weight: 600; /* Make active tab bolder */
-    background-color: transparent; /* No background for active tab by default */
+    color: var(--text-color-dark); /* Primary text color for active tab */
+    font-weight: 600; 
+    background-color: var(--card-background-color); /* Match page content area */
+    border-color: var(--separator-color); /* Match header bottom border */
+    border-bottom-color: var(--card-background-color); /* Key: make bottom border same as bg */
+    /* To make the active tab "pop" above the header's bottom border */
+    position: relative;
+    top: 1px; /* Effectively moves it down by 1px to cover the ul border */
+    margin-bottom: -1px; /* Pull it down to cover the ul border */
 }
 html[data-theme="dark"] nav a.active {
-    color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
+    color: var(--text-color-dark);
+    background-color: var(--card-background-color);
+    border-color: var(--separator-color);
+    border-bottom-color: var(--card-background-color);
 }
 
 /* 5. Cards */
@@ -479,30 +515,30 @@ html[data-theme="dark"] select {
 }
 
 /* Responsive adjustments for header and tabs */
-@media (max-width: 700px) { /* Increased breakpoint for nav wrapping behavior */
+@media (max-width: 700px) { 
     header {
-        flex-direction: column; /* Stack branding and nav */
-        align-items: flex-start; /* Align items to the start */
+        flex-direction: column; 
+        align-items: flex-start; 
     }
     .header-branding {
         width: 100%;
-        justify-content: space-between; /* Title left, toggle right */
-        margin-bottom: 0.25rem; /* Space before nav if it wraps */
+        justify-content: space-between; 
+        margin-bottom: 0; /* Remove margin, nav will have its own border for separation */
     }
     nav {
-        width: 100%; /* Nav takes full width */
-        margin-top: 0; /* Reset margin if already set */
+        width: 100%; 
+        margin-top: 0; 
+        /* overflow-x: auto; -- already set */
     }
     nav ul {
-        justify-content: flex-start; /* Tabs start from left */
-        /* Consider overflow-x: auto; for horizontal scrolling if tabs don't fit */
-        /* For now, rely on flex-wrap */
+        justify-content: flex-start; 
+        /* border-bottom: 1px solid var(--separator-color); -- already set */
     }
 }
 
 @media (max-width: 400px) {
     body {
-        padding: 0.25rem; /* Even less padding on very small screens */
+        padding: 0.25rem; 
     }
     header {
         padding: 0.25rem;
@@ -511,17 +547,17 @@ html[data-theme="dark"] select {
         padding: 0.1rem 0;
     }
     header h1 {
-        font-size: 1.1rem; /* Further reduce H1 size */
+        font-size: 1.1rem; 
     }
     #theme-toggle {
         font-size: 0.7rem;
         padding: 0.2rem 0.4rem;
         margin-left: 0.5rem;
     }
-    nav a {
-        padding: 0.5rem 0.6rem; /* Adjust tab padding */
-        font-size: 0.85rem; /* Adjust tab font size */
-        margin-right: 0.1rem;
+    nav a { /* Tabs on very small screens */
+        padding: 0.6rem 0.7rem; /* Slightly adjust tab padding */
+        font-size: 0.8rem; 
+        margin-right: 1px;
     }
     .card {
         padding: 0.75rem;
@@ -529,9 +565,10 @@ html[data-theme="dark"] select {
     }
 }
 
-/* Remove the old header stacking logic from previous version */
-/* @media (min-width: 600px) { ... } this was the old one */
-/* The new default is row, and @media (max-width: 700px) handles stacking */
+/* The old @media (min-width: 600px) rule that controlled header flex-direction: row is no longer needed 
+   as flex-direction: row (via flex-wrap: wrap on header) is the default for wider screens.
+   The stacking is handled by @media (max-width: 700px).
+*/
 
 /* Styled List for Categories/Transactions etc. */
 .styled-list {
@@ -598,4 +635,17 @@ html[data-theme="dark"] .list-item-info .item-detail {
 html[data-theme="dark"] .text-muted {
     color: var(--tertiary-text-color);
     opacity: 0.9; /* Adjust opacity for dark mode if needed */
+}
+
+/* Class for large text display, e.g., total amounts */
+.text-large {
+    font-size: 2.25rem; /* Large font size */
+    font-weight: 600; /* Bold */
+    color: var(--primary-color); /* Use primary color for emphasis */
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+}
+html[data-theme="dark"] .text-large {
+    color: var(--primary-color); /* Ensure it uses the dark theme's primary color */
 }
