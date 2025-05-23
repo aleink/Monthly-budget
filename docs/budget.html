@@ -93,36 +93,35 @@
 
       const cashflowEl = document.getElementById("cashflow");
       const catBudgetList = document.getElementById("catBudgetList");
+      cashflowEl.innerHTML = "<p>Loading financial snapshot...</p>";
+      catBudgetList.innerHTML = "<li>Loading category budgets...</li>";
 
       try {
-        // 1) sum all deposits
-        const depSnap = await getDocs(collection(db, "deposits"));
-        let allDeps = [];
-        depSnap.forEach(docSnap => {
-          allDeps.push({ ...docSnap.data() });
-        });
-        let totalDeposits = allDeps.reduce((sum, d) => sum + (d.amount||0), 0);
+        // Fetch all data concurrently
+        const [depSnap, txnSnap, catSnap] = await Promise.all([
+          getDocs(collection(db, "deposits")),
+          getDocs(collection(db, "transactions")),
+          getDocs(collection(db, "categories"))
+        ]);
 
-        // 2) gather expense transactions
-        const txnSnap = await getDocs(collection(db, "transactions"));
+        // 1) Process deposits
+        let allDeps = [];
+        depSnap.forEach(docSnap => allDeps.push({ ...docSnap.data() }));
+        let totalDeposits = allDeps.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+        // 2) Process transactions (expenses)
         let allTxns = [];
-        txnSnap.forEach(docSnap => {
-          allTxns.push({ ...docSnap.data() });
-        });
-        // filter expense or rent_expense or utility_bill (align with transaction types)
-        const expenseTxns = allTxns.filter(t => t.type==="expense" || t.type==="rent_expense" || t.type === "utility_bill");
-        let totalExpenses = expenseTxns.reduce((sum,e)=> sum+(e.amount||0), 0);
+        txnSnap.forEach(docSnap => allTxns.push({ ...docSnap.data() }));
+        const expenseTxns = allTxns.filter(t => t.type === "expense" || t.type === "rent_expense" || t.type === "utility_bill");
+        let totalExpenses = expenseTxns.reduce((sum, e) => sum + (e.amount || 0), 0);
 
         let overallCash = totalDeposits - totalExpenses;
 
-        // 3) fetch categories
-        const catSnap = await getDocs(collection(db, "categories"));
+        // 3) Process categories
         let categories = [];
-        catSnap.forEach(docSnap => {
-          categories.push({ id: docSnap.id, ...docSnap.data() });
-        });
+        catSnap.forEach(docSnap => categories.push({ id: docSnap.id, ...docSnap.data() }));
 
-        // 4) build a spent map for cycle1 and cycle2
+        // 4) Build a spent map for cycle1 and cycle2
         let spentC1 = {};
         let spentC2 = {};
         expenseTxns.forEach(txn => {

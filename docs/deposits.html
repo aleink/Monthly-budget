@@ -83,7 +83,6 @@
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     const depTypeEl = document.getElementById("depType");
-    const depTypeEl = document.getElementById("depType");
     const depAmtEl = document.getElementById("depAmount");
     const depDateEl = document.getElementById("depDate"); 
     const addDepBtn = document.getElementById("addDepBtn");
@@ -98,17 +97,19 @@
     });
     addDepBtn.addEventListener("click", onAddDeposit);
 
-    async function updateFinancialOverview() { // Renamed function
+    async function updateFinancialOverview() { 
       depListEl.innerHTML = ""; 
       if (availableCashAmountEl) availableCashAmountEl.textContent = "Calculating...";
+      
       let totalDeposits = 0;
       let totalExpenses = 0;
+      let deposits = [];
+      let errorOccurred = false;
 
+      // Step 1: Fetch and process deposits
       try {
-        // Fetch and sum deposits
         const depositsCollRef = collection(db, "deposits");
         const depositsSnap = await getDocs(depositsCollRef);
-        let deposits = [];
         depositsSnap.forEach(docSnap => {
           const depositData = docSnap.data();
           deposits.push({ id: docSnap.id, ...depositData });
@@ -116,25 +117,43 @@
             totalDeposits += depositData.amount;
           }
         });
+      } catch (err) {
+        console.error("Error loading deposits: ", err);
+        depListEl.innerHTML = "<li class='text-danger'>Could not load deposit list.</li>";
+        errorOccurred = true;
+        // Potentially alert for deposits specific error: alert("Error loading deposit data: " + err.message);
+      }
 
-        // Fetch and sum expenses (transactions)
+      // Step 2: Fetch and process transactions (expenses)
+      try {
         const expensesCollRef = collection(db, "transactions");
         const expensesSnap = await getDocs(expensesCollRef);
         expensesSnap.forEach(docSnap => {
           const expenseData = docSnap.data();
-          // Assuming all transactions are expenses for this calculation
-          // Or filter by type if needed: if (expenseData.type === 'expense' || expenseData.type === 'rent_expense' etc.)
           if (typeof expenseData.amount === 'number') {
             totalExpenses += expenseData.amount;
           }
         });
+      } catch (err) {
+        console.error("Error loading transactions for available cash calculation: ", err);
+        // Don't set errorOccurred to true here if deposits loaded,
+        // as we might still want to display available cash based on deposits alone
+        // or indicate that expenses couldn't be factored in.
+        if (availableCashAmountEl) availableCashAmountEl.textContent = "Error (Expenses)";
+        // Potentially alert for transaction specific error: alert("Error loading expense data: " + err.message);
+      }
 
+      // Step 3: Calculate and display available cash
+      if (availableCashAmountEl && !availableCashAmountEl.textContent.includes("Error")) { // Check if error already set by expenses
         const availableCash = totalDeposits - totalExpenses;
-        if (availableCashAmountEl) {
-          availableCashAmountEl.textContent = `$${availableCash.toFixed(2)}`;
-        }
-        
-        // Sort and display deposits (existing logic)
+        availableCashAmountEl.textContent = `$${availableCash.toFixed(2)}`;
+      } else if (errorOccurred && availableCashAmountEl) { // If deposits failed
+         availableCashAmountEl.textContent = "Error";
+      }
+
+
+      // Step 4: Sort and display deposits (only if successfully fetched)
+      if (deposits.length > 0 || !errorOccurred) { // Display even if empty, unless initial deposit load failed
         deposits.sort((a, b) => {
           const dateA = a.timestamp ? new Date(a.timestamp) : 0;
           const dateB = b.timestamp ? new Date(b.timestamp) : 0;
@@ -174,7 +193,7 @@
           delBtn.onclick = async () => {
             if (confirm(`Delete deposit of $${(dep.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
               await deleteDoc(doc(db, "deposits", dep.id));
-              updateFinancialOverview(); // Renamed function call
+              updateFinancialOverview(); 
             }
           };
           actionsDiv.appendChild(delBtn);
@@ -182,11 +201,9 @@
           li.appendChild(actionsDiv);
           depListEl.appendChild(li);
         });
-      } catch(err) {
-        console.error("Error loading financial data: ", err);
-        if (availableCashAmountEl) availableCashAmountEl.textContent = "Error";
-        alert("Error loading financial data: " + err.message);
       }
+      // Removed the broad catch here to allow separate error handling for deposits and transactions
+      // If a global error needs to be caught (e.g., for UI updates common to both), it can be wrapped higher up.
     }
 
     async function onAddDeposit() {
