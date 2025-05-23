@@ -3,36 +3,67 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Deposits - Budget Bot</title>
+  <title>Budget Bot - Deposits</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Deposits</h1>
+    <h1>Budget Bot</h1>
+    <button id="theme-toggle" aria-label="Toggle theme">Toggle Theme</button>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="categories.html">Categories</a></li>
+            <li><a href="deposits.html" class="active">Deposits</a></li>
+            <li><a href="transactions.html">Expenses</a></li>
+            <li><a href="budget.html">Budget</a></li>
+        </ul>
+    </nav>
   </header>
+  <main>
+    <div class="card">
+      <h2>Record New Deposit</h2>
+      <div class="form-group">
+        <label for="depType">Deposit Type</label>
+        <select id="depType">
+          <option value="paycheck">Paycheck</option>
+          <option value="atm">ATM Deposit</option>
+          <option value="bonus">Bonus</option>
+          <option value="other">Other Income</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="depAmount">Amount ($)</label>
+        <input type="number" step="0.01" id="depAmount" placeholder="e.g., 500.00"/>
+      </div>
+      <div class="form-group">
+        <label for="depDate">Date of Deposit</label>
+        <input type="date" id="depDate"/>
+      </div>
+      <button id="addDepBtn" class="btn">Add Deposit</button>
+    </div>
 
-  <div class="card">
-    <h2>Add Deposit</h2>
-    <label>Type:
-      <select id="depType">
-        <option value="paycheck">Paycheck</option>
-        <option value="atm">ATM</option>
-      </select>
-    </label>
-    <br><br>
-    <label>Amount ($)
-      <input type="number" step="0.01" id="depAmount" placeholder="e.g. 500.00"/>
-    </label>
-    <br><br>
-    <button id="addDepBtn" class="btn">Add Deposit</button>
-  </div>
-
-  <div class="card">
-    <h2>Existing Deposits</h2>
-    <ul id="depList"></ul>
-  </div>
-
+    <div class="card">
+      <h2>Recent Deposits</h2>
+      <p class="text-muted">View or delete your recent deposits below.</p>
+      <ul id="depList" class="styled-list">
+        <!-- 
+          Example LI structure for JS to build:
+          <li>
+            <div class="list-item-info">
+              <span class="item-name">Paycheck</span>
+              <span class="item-detail">Amount: $500.00</span>
+              <span class="item-detail">Date: 2023-10-26</span>
+            </div>
+            <div class="list-item-actions">
+              <button class="btn btn-sm btn-delete">Delete</button>
+            </div>
+          </li> 
+        -->
+      </ul>
+    </div>
+  </main>
+  <script src="assets/theme.js"></script>
   <script type="module">
     import { db } from "./firebase.js";
     import {
@@ -45,14 +76,21 @@
 
     const depTypeEl = document.getElementById("depType");
     const depAmtEl = document.getElementById("depAmount");
+    const depDateEl = document.getElementById("depDate"); // Added
     const addDepBtn = document.getElementById("addDepBtn");
     const depListEl = document.getElementById("depList");
 
-    document.addEventListener("DOMContentLoaded", loadDepositsUI);
+    document.addEventListener("DOMContentLoaded", () => { // Wrapped in arrow function
+      // Set default date for depDate to today
+      if (depDateEl) {
+        depDateEl.valueAsDate = new Date();
+      }
+      loadDepositsUI();
+    });
     addDepBtn.addEventListener("click", onAddDeposit);
 
     async function loadDepositsUI() {
-      depListEl.innerHTML = "";
+      depListEl.innerHTML = ""; // Clear previous list
       try {
         const collRef = collection(db, "deposits");
         const snap = await getDocs(collRef);
@@ -60,23 +98,53 @@
         snap.forEach(docSnap => {
           deposits.push({ id: docSnap.id, ...docSnap.data() });
         });
-        // Display
+        
+        // Sort deposits by timestamp, newest first
+        deposits.sort((a, b) => {
+          const dateA = a.timestamp ? new Date(a.timestamp) : 0;
+          const dateB = b.timestamp ? new Date(b.timestamp) : 0;
+          return dateB - dateA; // Sort descending
+        });
+
         deposits.forEach(dep => {
           const li = document.createElement("li");
-          const dateStr = dep.timestamp ? dep.timestamp.split("T")[0] : "unknownDate";
-          li.textContent = `${dep.type} - $${dep.amount} on ${dateStr}`;
+
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "list-item-info";
+
+          const typeSpan = document.createElement("span");
+          typeSpan.className = "item-name"; // Using generic class from CSS
+          typeSpan.textContent = dep.type.charAt(0).toUpperCase() + dep.type.slice(1); // Capitalize type
+          infoDiv.appendChild(typeSpan);
+
+          const amountSpan = document.createElement("span");
+          amountSpan.className = "item-detail"; // Using generic class
+          amountSpan.textContent = `Amount: $${(dep.amount || 0).toFixed(2)}`;
+          infoDiv.appendChild(amountSpan);
+          
+          const dateStr = dep.timestamp ? new Date(dep.timestamp).toLocaleDateString() : "Unknown Date";
+          const dateSpan = document.createElement("span");
+          dateSpan.className = "item-detail";
+          dateSpan.textContent = `Date: ${dateStr}`;
+          infoDiv.appendChild(dateSpan);
+
+          li.appendChild(infoDiv);
+
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "list-item-actions";
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
-          delBtn.style.marginLeft = "1rem";
+          delBtn.className = "btn btn-sm btn-delete"; // Added classes
           delBtn.onclick = async () => {
-            if (confirm(`Delete deposit of $${dep.amount}?`)) {
+            if (confirm(`Delete deposit of $${(dep.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
               await deleteDoc(doc(db, "deposits", dep.id));
-              loadDepositsUI();
+              loadDepositsUI(); // Refresh list
             }
           };
+          actionsDiv.appendChild(delBtn);
 
-          li.appendChild(delBtn);
+          li.appendChild(actionsDiv);
           depListEl.appendChild(li);
         });
       } catch(err) {
@@ -86,20 +154,32 @@
 
     async function onAddDeposit() {
       const typeVal = depTypeEl.value;
-      const amtVal = parseFloat(depAmtEl.value.trim()) || 0;
-      if (amtVal <= 0) {
-        alert("Enter a positive amount");
+      const amtVal = parseFloat(depAmtEl.value.trim());
+      const dateVal = depDateEl.value; // Get date value
+
+      if (isNaN(amtVal) || amtVal <= 0) {
+        alert("Please enter a valid positive amount for the deposit.");
         return;
       }
+      if (!dateVal) {
+        alert("Please select a date for the deposit.");
+        return;
+      }
+      // Convert selected date to ISO string at the beginning of the day in local timezone
+      const selectedDate = new Date(dateVal);
+      selectedDate.setHours(0, 0, 0, 0); // Set to start of day
+      const timestamp = selectedDate.toISOString();
+
       try {
         const collRef = collection(db, "deposits");
         await addDoc(collRef, {
           type: typeVal,
           amount: amtVal,
-          timestamp: new Date().toISOString()
+          timestamp: timestamp // Use the selected date
         });
-        depAmtEl.value = "";
-        loadDepositsUI();
+        depAmtEl.value = ""; // Clear amount
+        // depDateEl.valueAsDate = new Date(); // Reset date to today - might be annoying if back-dating
+        loadDepositsUI(); // Refresh the list
       } catch(err) {
         alert("Error creating deposit: " + err.message);
       }

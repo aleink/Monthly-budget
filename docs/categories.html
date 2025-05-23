@@ -3,34 +3,63 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Categories - Two Cycles</title>
+  <title>Budget Bot - Categories</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Categories</h1>
+    <h1>Budget Bot</h1>
+    <button id="theme-toggle" aria-label="Toggle theme">Toggle Theme</button>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="categories.html" class="active">Categories</a></li>
+            <li><a href="deposits.html">Deposits</a></li>
+            <li><a href="transactions.html">Expenses</a></li>
+            <li><a href="budget.html">Budget</a></li>
+        </ul>
+    </nav>
   </header>
+  <main>
+    <div class="card">
+      <h2>Add New Category</h2>
+      <div class="form-group">
+        <label for="catName">Category Name</label>
+        <input type="text" id="catName" placeholder="e.g., Groceries, Utilities"/>
+      </div>
+      <div class="form-group">
+        <label for="catC1">Cycle 1 Budget ($)</label>
+        <input type="number" step="0.01" id="catC1" placeholder="e.g., 200.00"/>
+      </div>
+      <div class="form-group">
+        <label for="catC2">Cycle 2 Budget ($)</label>
+        <input type="number" step="0.01" id="catC2" placeholder="e.g., 300.00"/>
+      </div>
+      <button id="addCatBtn" class="btn">Add Category</button>
+    </div>
 
-  <div class="card">
-    <h2>Add Category</h2>
-    <label for="catName">Name</label>
-    <input type="text" id="catName" placeholder="e.g. Groceries"/><br><br>
-
-    <label for="catC1">Cycle 1 Budget ($)</label>
-    <input type="number" step="0.01" id="catC1" placeholder="e.g. 200"/><br><br>
-
-    <label for="catC2">Cycle 2 Budget ($)</label>
-    <input type="number" step="0.01" id="catC2" placeholder="e.g. 300"/><br><br>
-
-    <button id="addCatBtn" class="btn">Add Category</button>
-  </div>
-
-  <div class="card">
-    <h2>Existing Categories</h2>
-    <ul id="catList"></ul>
-  </div>
-
+    <div class="card">
+      <h2>Manage Existing Categories</h2>
+      <p class="text-muted">View, edit, or delete your spending categories below.</p>
+      <ul id="catList" class="styled-list">
+        <!-- 
+          Example LI structure for JS to build:
+          <li>
+            <div class="list-item-info">
+              <span class="category-name">Groceries</span>
+              <span class="category-budget">Cycle 1: $200.00</span>
+              <span class="category-budget">Cycle 2: $250.00</span>
+            </div>
+            <div class="list-item-actions">
+              <button class="btn btn-sm btn-edit">Edit</button>
+              <button class="btn btn-sm btn-delete">Delete</button>
+            </div>
+          </li> 
+        -->
+      </ul>
+    </div>
+  </main>
+  <script src="assets/theme.js"></script>
   <script type="module">
     import { db } from "./firebase.js";
     import {
@@ -63,30 +92,54 @@
 
         cats.forEach(cat => {
           const li = document.createElement("li");
-          const c1 = cat.cycle1 || 0;
-          const c2 = cat.cycle2 || 0;
-          const line = `${cat.name}: C1=$${c1} | C2=$${c2}`;
-          li.textContent = line;
 
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "list-item-info";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "category-name";
+          nameSpan.textContent = cat.name;
+          infoDiv.appendChild(nameSpan);
+
+          const c1 = cat.cycle1 || 0;
+          const c1Span = document.createElement("span");
+          c1Span.className = "category-budget";
+          c1Span.textContent = `Cycle 1: $${c1.toFixed(2)}`;
+          infoDiv.appendChild(c1Span);
+
+          const c2 = cat.cycle2 || 0;
+          const c2Span = document.createElement("span");
+          c2Span.className = "category-budget";
+          c2Span.textContent = `Cycle 2: $${c2.toFixed(2)}`;
+          infoDiv.appendChild(c2Span);
+
+          li.appendChild(infoDiv);
+
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "list-item-actions";
+
+          // Edit button
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Edit";
+          editBtn.className = "btn btn-sm btn-edit"; // Added classes
+          // editBtn.style.marginLeft = "1rem"; // Replaced by CSS
+          editBtn.onclick = () => editCategory(cat);
+          actionsDiv.appendChild(editBtn);
+          
           // Delete button
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
-          delBtn.style.marginLeft = "1rem";
+          delBtn.className = "btn btn-sm btn-delete"; // Added classes
+          // delBtn.style.marginLeft = "1rem"; // Replaced by CSS
           delBtn.onclick = async () => {
             if (confirm(`Delete category "${cat.name}"?`)) {
               await deleteDoc(doc(db, "categories", cat.id));
               loadCategoriesUI();
             }
           };
+          actionsDiv.appendChild(delBtn);
 
-          // Edit button
-          const editBtn = document.createElement("button");
-          editBtn.textContent = "Edit";
-          editBtn.style.marginLeft = "1rem";
-          editBtn.onclick = () => editCategory(cat);
-
-          li.appendChild(delBtn);
-          li.appendChild(editBtn);
+          li.appendChild(actionsDiv);
           catList.appendChild(li);
         });
       } catch(err) {
