@@ -23,6 +23,12 @@
     </nav>
   </header>
   <main>
+    <div class="card text-center"> <!-- Added text-center for overall alignment -->
+      <h2>Total Deposits</h2>
+      <p id="total-deposits-amount" class="text-large">Loading...</p>
+      <p class="text-muted mt-1">This is the sum of all recorded deposits.</p>
+    </div>
+
     <div class="card">
       <h2>Record New Deposit</h2>
       <div class="form-group">
@@ -77,12 +83,14 @@
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     const depTypeEl = document.getElementById("depType");
+    const depTypeEl = document.getElementById("depType");
     const depAmtEl = document.getElementById("depAmount");
-    const depDateEl = document.getElementById("depDate"); // Added
+    const depDateEl = document.getElementById("depDate"); 
     const addDepBtn = document.getElementById("addDepBtn");
     const depListEl = document.getElementById("depList");
+    const totalDepositsAmountEl = document.getElementById("total-deposits-amount"); // Added
 
-    document.addEventListener("DOMContentLoaded", () => { // Wrapped in arrow function
+    document.addEventListener("DOMContentLoaded", () => { 
       // Set default date for depDate to today
       if (depDateEl) {
         depDateEl.valueAsDate = new Date();
@@ -92,14 +100,25 @@
     addDepBtn.addEventListener("click", onAddDeposit);
 
     async function loadDepositsUI() {
-      depListEl.innerHTML = ""; // Clear previous list
+      depListEl.innerHTML = ""; 
+      if (totalDepositsAmountEl) totalDepositsAmountEl.textContent = "Loading...";
+      let totalDeposits = 0;
+
       try {
         const collRef = collection(db, "deposits");
         const snap = await getDocs(collRef);
         let deposits = [];
         snap.forEach(docSnap => {
-          deposits.push({ id: docSnap.id, ...docSnap.data() });
+          const depositData = docSnap.data();
+          deposits.push({ id: docSnap.id, ...depositData });
+          if (typeof depositData.amount === 'number') {
+            totalDeposits += depositData.amount;
+          }
         });
+
+        if (totalDepositsAmountEl) {
+          totalDepositsAmountEl.textContent = `$${totalDeposits.toFixed(2)}`;
+        }
         
         // Sort deposits by timestamp, newest first
         deposits.sort((a, b) => {
@@ -115,12 +134,12 @@
           infoDiv.className = "list-item-info";
 
           const typeSpan = document.createElement("span");
-          typeSpan.className = "item-name"; // Using generic class from CSS
-          typeSpan.textContent = dep.type.charAt(0).toUpperCase() + dep.type.slice(1); // Capitalize type
+          typeSpan.className = "item-name"; 
+          typeSpan.textContent = dep.type.charAt(0).toUpperCase() + dep.type.slice(1); 
           infoDiv.appendChild(typeSpan);
 
           const amountSpan = document.createElement("span");
-          amountSpan.className = "item-detail"; // Using generic class
+          amountSpan.className = "item-detail"; 
           amountSpan.textContent = `Amount: $${(dep.amount || 0).toFixed(2)}`;
           infoDiv.appendChild(amountSpan);
           
@@ -137,11 +156,11 @@
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
-          delBtn.className = "btn btn-sm btn-delete"; // Added classes
+          delBtn.className = "btn btn-sm btn-delete"; 
           delBtn.onclick = async () => {
             if (confirm(`Delete deposit of $${(dep.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
               await deleteDoc(doc(db, "deposits", dep.id));
-              loadDepositsUI(); // Refresh list
+              loadDepositsUI(); 
             }
           };
           actionsDiv.appendChild(delBtn);
@@ -150,6 +169,8 @@
           depListEl.appendChild(li);
         });
       } catch(err) {
+        console.error("Error loading deposits: ", err);
+        if (totalDepositsAmountEl) totalDepositsAmountEl.textContent = "Error";
         alert("Error loading deposits: " + err.message);
       }
     }
