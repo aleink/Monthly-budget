@@ -3,21 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Budget Bot - Firebase</title>
+  <title>Budget Bot - Home</title>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
   <header>
-    <h1>Budget Bot (Firebase)</h1>
+    <h1>Budget Bot</h1>
+    <button id="theme-toggle" aria-label="Toggle theme">Toggle Theme</button>
+    <nav>
+        <ul>
+            <li><a href="index.html" class="active">Home</a></li>
+            <li><a href="categories.html">Categories</a></li>
+            <li><a href="deposits.html">Deposits</a></li>
+            <li><a href="transactions.html">Expenses</a></li>
+            <li><a href="budget.html">Budget</a></li>
+        </ul>
+    </nav>
   </header>
-
-  <div class="card">
-    <h2>Welcome!</h2>
-    <p>Select a page:</p>
-    <a class="btn" href="categories.html">Manage Categories</a><br><br>
-    <a class="btn" href="deposits.html">Deposits</a><br><br>
-    <a class="btn" href="transactions.html">Expenses</a><br><br>
-    <a class="btn" href="budget.html">Budget Status</a>
-  </div>
+  <main>
+    <div class="card">
+      <h2>Welcome to Budget Bot!</h2>
+      <p>This is your personal budget application. Use the navigation above to manage your finances.</p>
+    </div>
+  </main>
+  <script src="assets/theme.js"></script>
 </body>
 </html>

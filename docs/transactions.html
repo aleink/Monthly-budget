@@ -3,48 +3,79 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Transactions - Two Cycles</title>
+  <title>Budget Bot - Expenses</title>
   <link rel="stylesheet" href="assets/style.css"/>
 </head>
 <body>
   <header>
-    <a href="index.html" style="color:#fff;text-decoration:none;">← Back</a>
-    <h1>Expenses</h1>
+    <h1>Budget Bot</h1>
+    <button id="theme-toggle" aria-label="Toggle theme">Toggle Theme</button>
+    <nav>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="categories.html">Categories</a></li>
+            <li><a href="deposits.html">Deposits</a></li>
+            <li><a href="transactions.html" class="active">Expenses</a></li>
+            <li><a href="budget.html">Budget</a></li>
+        </ul>
+    </nav>
   </header>
+  <main>
+    <div class="card">
+      <h2>Log New Expense</h2>
+      <div class="form-group">
+        <label for="txnType">Expense Type</label>
+        <select id="txnType">
+          <option value="expense">General Expense</option>
+          <option value="rent_expense">Rent Expense</option>
+          <option value="utility_bill">Utility Bill</option>
+          <!-- Add more types as needed -->
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="txnCat">Category</label>
+        <select id="txnCat"></select>
+      </div>
+      <div class="form-group">
+        <label for="txnCycle">Budget Cycle</label>
+        <select id="txnCycle">
+          <option value="C1">Cycle 1</option>
+          <option value="C2">Cycle 2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="txnAmt">Amount ($)</label>
+        <input type="number" step="0.01" id="txnAmt" placeholder="e.g., 50.00"/>
+      </div>
+      <div class="form-group">
+        <label for="txnDate">Date of Expense</label>
+        <input type="date" id="txnDate"/>
+      </div>
+      <button class="btn" id="txnAddBtn">Log Expense</button>
+    </div>
 
-  <div class="card">
-    <h2>Create Expense</h2>
-
-    <label>Type</label>
-    <select id="txnType">
-      <option value="expense">Expense</option>
-      <option value="rent_expense">Rent Expense</option>
-    </select>
-    <br><br>
-
-    <label>Category</label>
-    <select id="txnCat"></select>
-    <br><br>
-
-    <label>Which cycle?</label>
-    <select id="txnCycle">
-      <option value="C1">Cycle 1</option>
-      <option value="C2">Cycle 2</option>
-    </select>
-    <br><br>
-
-    <label>Amount ($)</label>
-    <input type="number" step="0.01" id="txnAmt" placeholder="e.g. 50.00"/>
-    <br><br>
-
-    <button class="btn" id="txnAddBtn">Create Expense</button>
-  </div>
-
-  <div class="card">
-    <h2>All Expenses</h2>
-    <ul id="txnList"></ul>
-  </div>
-
+    <div class="card">
+      <h2>Recent Expenses</h2>
+      <p class="text-muted">View or delete your recent expenses below.</p>
+      <ul id="txnList" class="styled-list">
+        <!-- 
+          Example LI structure for JS to build:
+          <li>
+            <div class="list-item-info">
+              <span class="item-name">Groceries (Expense)</span> 
+              <span class="item-detail">Amount: $50.00</span>
+              <span class="item-detail">Date: 2023-10-26</span>
+              <span class="item-detail">Cycle: C1</span>
+            </div>
+            <div class="list-item-actions">
+              <button class="btn btn-sm btn-delete">Delete</button>
+            </div>
+          </li> 
+        -->
+      </ul>
+    </div>
+  </main>
+  <script src="assets/theme.js"></script>
   <script type="module">
     import { db } from "./firebase.js";
     import {
@@ -55,11 +86,17 @@
     const txnCatEl    = document.getElementById("txnCat");
     const txnCycleEl  = document.getElementById("txnCycle");
     const txnAmtEl    = document.getElementById("txnAmt");
+    const txnDateEl   = document.getElementById("txnDate"); // Added
     const txnAddBtn   = document.getElementById("txnAddBtn");
     const txnListEl   = document.getElementById("txnList");
 
+    let categoriesMap = {}; // To store category names by ID
+
     document.addEventListener("DOMContentLoaded", async () => {
-      await loadCategories();
+      if (txnDateEl) {
+        txnDateEl.valueAsDate = new Date(); // Default to today
+      }
+      await loadCategories(); // Load categories first to populate the map
       await loadExpenses();
       txnAddBtn.addEventListener("click", createExpense);
     });
@@ -67,86 +104,130 @@
     async function loadCategories() {
       try {
         const snap = await getDocs(collection(db, "categories"));
-        const cats = [];
+        categoriesMap = {}; // Reset map
+        txnCatEl.innerHTML = ""; // Clear dropdown
         snap.forEach(docSnap => {
-          cats.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        txnCatEl.innerHTML = "";
-        cats.forEach(cat => {
+          const catData = docSnap.data();
+          categoriesMap[docSnap.id] = catData.name; // Store name by ID
           const opt = document.createElement("option");
-          opt.value = cat.id;
-          opt.textContent = cat.name;
+          opt.value = docSnap.id;
+          opt.textContent = catData.name;
           txnCatEl.appendChild(opt);
         });
       } catch(err) {
+        console.error("Error loading categories: ", err);
         alert("Error loading categories: " + err.message);
       }
     }
 
     async function createExpense() {
       const typeVal  = txnTypeEl.value;
-      const catVal   = txnCatEl.value;
+      const catIdVal = txnCatEl.value; // This is category ID
       const cycVal   = txnCycleEl.value;
-      const amtVal   = parseFloat(txnAmtEl.value.trim()) || 0;
+      const amtVal   = parseFloat(txnAmtEl.value.trim());
+      const dateVal  = txnDateEl.value;
 
-      if (!catVal) {
-        alert("Select a category.");
+      if (!catIdVal) {
+        alert("Please select a category for the expense.");
         return;
       }
       if (!cycVal) {
-        alert("Select which cycle (C1 or C2).");
+        alert("Please select a budget cycle for the expense.");
         return;
       }
-      if (amtVal <= 0) {
-        alert("Enter a positive amount.");
+      if (isNaN(amtVal) || amtVal <= 0) {
+        alert("Please enter a valid positive amount for the expense.");
         return;
       }
+      if (!dateVal) {
+        alert("Please select a date for the expense.");
+        return;
+      }
+      const selectedDate = new Date(dateVal);
+      selectedDate.setHours(0,0,0,0); // Set to start of day
+      const timestamp = selectedDate.toISOString();
 
       try {
         await addDoc(collection(db, "transactions"), {
           type: typeVal,
-          categoryId: catVal,
+          categoryId: catIdVal, 
           cycle: cycVal,
           amount: amtVal,
-          timestamp: new Date().toISOString()
+          timestamp: timestamp
         });
-        txnAmtEl.value = "";
-        loadExpenses();
+        txnAmtEl.value = ""; // Clear amount
+        // Consider resetting date or category? For now, no.
+        loadExpenses(); // Refresh the list
       } catch(err) {
+        console.error("Error creating expense: ", err);
         alert("Error creating expense: " + err.message);
       }
     }
 
     async function loadExpenses() {
+      txnListEl.innerHTML = ""; // Clear previous list
       try {
         const snap = await getDocs(collection(db, "transactions"));
-        const allTxns = [];
+        let transactions = [];
         snap.forEach(docSnap => {
-          allTxns.push({ id: docSnap.id, ...docSnap.data() });
+          transactions.push({ id: docSnap.id, ...docSnap.data() });
         });
-        // filter only expense or rent_expense
-        const expenseTxns = allTxns.filter(t => t.type==="expense" || t.type==="rent_expense");
+        
+        // Filter for expense types (can be expanded if more types are added)
+        const expenseTxns = transactions.filter(t => t.type === "expense" || t.type === "rent_expense" || t.type === "utility_bill");
 
-        txnListEl.innerHTML = "";
+        // Sort expenses by timestamp, newest first
+        expenseTxns.sort((a, b) => (new Date(b.timestamp) || 0) - (new Date(a.timestamp) || 0));
+
         expenseTxns.forEach(txn => {
           const li = document.createElement("li");
-          const dateStr = txn.timestamp ? txn.timestamp.split("T")[0] : "";
-          li.textContent = `${txn.type} $${txn.amount}, cycle=${txn.cycle}, cat=${txn.categoryId}, date=${dateStr}`;
+
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "list-item-info";
+
+          const categoryName = categoriesMap[txn.categoryId] || "Unknown Category";
+          const itemNameSpan = document.createElement("span");
+          itemNameSpan.className = "item-name";
+          itemNameSpan.textContent = `${categoryName} (${txn.type.replace('_', ' ')})`;
+          infoDiv.appendChild(itemNameSpan);
+
+          const amountSpan = document.createElement("span");
+          amountSpan.className = "item-detail";
+          amountSpan.textContent = `Amount: $${(txn.amount || 0).toFixed(2)}`;
+          infoDiv.appendChild(amountSpan);
+          
+          const dateStr = txn.timestamp ? new Date(txn.timestamp).toLocaleDateString() : "Unknown Date";
+          const dateSpan = document.createElement("span");
+          dateSpan.className = "item-detail";
+          dateSpan.textContent = `Date: ${dateStr}`;
+          infoDiv.appendChild(dateSpan);
+
+          const cycleSpan = document.createElement("span");
+          cycleSpan.className = "item-detail";
+          cycleSpan.textContent = `Cycle: ${txn.cycle}`;
+          infoDiv.appendChild(cycleSpan);
+
+          li.appendChild(infoDiv);
+
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "list-item-actions";
 
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
-          delBtn.style.marginLeft = "1rem";
+          delBtn.className = "btn btn-sm btn-delete";
           delBtn.onclick = async () => {
-            if (confirm(`Delete expense of $${txn.amount}?`)) {
+            if (confirm(`Delete expense of $${(txn.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
               await deleteDoc(doc(db, "transactions", txn.id));
-              loadExpenses();
+              loadExpenses(); // Refresh list
             }
           };
-          li.appendChild(delBtn);
+          actionsDiv.appendChild(delBtn);
 
+          li.appendChild(actionsDiv);
           txnListEl.appendChild(li);
         });
       } catch(err) {
+        console.error("Error loading expenses: ", err);
         alert("Error loading expenses: " + err.message);
       }
     }

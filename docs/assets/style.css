@@ -1,65 +1,495 @@
-/* style.css */
+/* style.css - Modern Theme */
+
+/* 1. Variables (CSS Custom Properties) */
+:root {
+    --primary-color: #007AFF; /* Vibrant Blue */
+    --primary-hover-color: #0056b3; /* Darker Blue */
+    --secondary-color: #6c757d; /* Gray for secondary elements */
+    --background-color: #f4f7f9; /* Light Grayish Blue */
+    --card-background-color: #ffffff;
+    --text-color-dark: #212529; /* Dark Gray for text */
+    --text-color-light: #ffffff;
+    --border-color: #dee2e6; /* Light Gray for borders */
+    --font-family-sans-serif: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --default-border-radius: 0.375rem; /* approx 6px */
+    --card-border-radius: 0.5rem; /* approx 8px */
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.07);
+
+    /* Theme Toggle Button Colors (can be adjusted) */
+    --toggle-bg: #ddd;
+    --toggle-fg: #fff;
+    --toggle-icon-light: #f39c12; /* Sun icon */
+    --toggle-icon-dark: #bdc3c7;  /* Moon icon */
+}
+
+/* Dark Theme Overrides */
+html[data-theme="dark"] {
+    --primary-color: #0088ff; /* Slightly brighter blue for dark mode */
+    --primary-hover-color: #0066cc;
+    --secondary-color: #868e96; /* Lighter gray */
+    --background-color: #121212; /* Very dark gray, almost black */
+    --card-background-color: #1e1e1e; /* Dark gray for cards */
+    --text-color-dark: #e0e0e0; /* Light gray for text */
+    --text-color-light: #121212; /* Dark text for elements on light backgrounds if any */
+    --border-color: #333333; /* Darker border color */
+
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.3); /* Stronger shadow for dark mode */
+    --shadow-md: 0 4px 8px rgba(0,0,0,0.4);
+
+    /* Adjust toggle colors for dark mode if needed */
+    --toggle-bg: #555;
+    --toggle-fg: #121212;
+}
+
+
+/* 2. Global Resets & Base Styles */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: sans-serif;
 }
+
+html {
+    font-size: 16px; /* Base font size */
+    scroll-behavior: smooth;
+}
+
 body {
-    background-color: #f9f9f9;
-    padding: 0.5rem;
-    max-width: 360px;
-    margin: 0 auto; /* center horizontally on bigger screens */
+    font-family: var(--font-family-sans-serif);
+    background-color: var(--background-color);
+    color: var(--text-color-dark);
+    line-height: 1.6;
+    padding: 0.75rem; /* Slightly more padding */
+    max-width: 768px; /* Increased max-width for tablets/larger phones */
+    margin: 0 auto;
 }
+
+/* 3. Typography */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-weight: 600; /* Slightly bolder */
+    line-height: 1.3;
+}
+
+h1 { font-size: 1.75rem; /* Was 1.5em in header, now standardized */ }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+p {
+    margin-bottom: 1rem;
+}
+
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+}
+a:hover {
+    color: var(--primary-hover-color);
+    text-decoration: underline;
+}
+
+/* 4. Header & Navigation */
 header {
     position: sticky;
     top: 0;
-    background-color: #333;
-    color: #fff;
-    padding: 0.5rem;
-    text-align: center;
-    margin-bottom: 1rem;
+    background-color: #2c3e50; /* Dark Slate Blue */
+    color: var(--text-color-light);
+    padding: 0.75rem;
+    /* text-align: center; -- Replaced by flex properties */
+    margin-bottom: 1.5rem; /* Increased margin */
+    z-index: 1000; /* Ensure header is above other content */
+    display: flex;
+    flex-direction: column; /* Stack items vertically by default */
+    align-items: center; /* Center items horizontally */
+    border-bottom: 3px solid var(--primary-color);
 }
+
+header h1 {
+    font-size: 1.6rem; /* Adjusted for new theme */
+    margin-bottom: 0.5rem;
+    color: var(--text-color-light);
+    text-align: center; /* Explicitly center h1 text */
+}
+
+/* Theme toggle needs to be ordered correctly with flex, or taken out of flow */
+/* For simplicity, let's ensure it's part of the column flow and centered */
+#theme-toggle {
+    margin-top: 0.25rem; /* Add some space above if h1 is wide */
+    margin-bottom: 0.5rem; /* Add some space below before nav */
+}
+
+nav {
+    background-color: transparent; /* Nav bg now same as header, or slightly different if preferred */
+    padding: 0.25rem 0; /* Reduced padding as it's within header */
+    width: 100%; /* Ensure nav takes full width for its own centering */
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+nav li {
+    margin: 0.25rem; /* Slightly reduced margin */
+}
+
+nav a {
+    color: var(--text-color-light);
+    text-decoration: none;
+    padding: 0.5rem 0.75rem; /* Adjusted padding */
+    border-radius: var(--default-border-radius);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-weight: 500;
+}
+
+nav a:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Subtle hover on nav links */
+    color: var(--text-color-light);
+    text-decoration: none;
+}
+
+nav a.active {
+    background-color: var(--primary-color);
+    color: var(--text-color-light);
+    font-weight: 600;
+}
+
+/* 5. Cards */
+.card {
+    background-color: var(--card-background-color);
+    border-radius: var(--card-border-radius);
+    box-shadow: var(--shadow-md);
+    margin: 1.25rem 0; /* Consistent margin */
+    padding: 1.25rem; /* Consistent padding */
+    border: 1px solid var(--border-color);
+}
+
+/* 6. Buttons */
 .btn {
     display: inline-block;
     text-decoration: none;
-    background-color: #007bff;
-    color: #fff;
-    padding: 0.75rem 1rem;
+    background-color: var(--primary-color);
+    color: var(--text-color-light);
+    padding: 0.65rem 1.25rem; /* Adjusted padding */
     margin: 0.5rem 0;
-    border-radius: 5px;
+    border-radius: var(--default-border-radius);
     text-align: center;
+    font-weight: 500;
+    border: 1px solid var(--primary-color);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .btn:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover-color);
+    border-color: var(--primary-hover-color);
+    color: var(--text-color-light);
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
 }
-.card {
-    background-color: #fff;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin: 1rem 0;
-    padding: 1rem;
+
+/* Specific button styling (e.g., delete/edit buttons in lists) */
+/* These might need more specific selectors if .btn is too generic */
+ul button, li button { /* A bit broad, but targets buttons in lists */
+    padding: 0.3rem 0.6rem;
+    font-size: 0.875rem;
+    margin-left: 0.5rem !important; /* Ensure margin is applied */
 }
-h2, h3 {
-    margin-bottom: 0.5rem;
+/* Secondary button style (optional) */
+.btn-secondary {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
 }
-input, select {
+.btn-secondary:hover {
+    background-color: #5a6268; /* Darken secondary color */
+    border-color: #545b62;
+}
+
+.btn-sm { /* For smaller buttons like edit/delete in lists */
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    margin-left: 0.25rem !important; /* Ensure it overrides broader button margin if needed */
+}
+.btn-edit { /* Specific styling for edit buttons if needed, can use primary color */
+    /* background-color: var(--primary-color); */
+    /* border-color: var(--primary-color); */
+}
+.btn-delete { /* Specific styling for delete buttons */
+    background-color: var(--secondary-color); /* Or a red color like #dc3545 */
+    border-color: var(--secondary-color);
+}
+.btn-delete:hover {
+    background-color: #5a6268; /* Darken secondary or red */
+    border-color: #545b62;
+}
+
+
+/* 7. Forms */
+.form-group {
+    margin-bottom: 1rem; /* Space between form groups */
+}
+.form-group:last-of-type {
+    margin-bottom: 1.5rem; /* More space before the main form button */
+}
+
+label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"], /* Add other input types as needed */
+select {
     width: 100%;
-    padding: 0.5rem;
-    margin: 0.5rem 0;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 0.65rem; /* Consistent padding */
+    margin-bottom: 0.75rem; /* Consistent margin */
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    background-color: var(--card-background-color); /* Ensure inputs are white */
+    color: var(--text-color-dark);
+    font-family: var(--font-family-sans-serif);
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-/* For the progress bar (budget page) */
-.progress {
-    background-color: #e9ecef;
-    border-radius: 0.25rem;
-    overflow: hidden;
-    height: 20px;
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* Focus ring */
+}
+
+select {
+    appearance: none; /* Remove default system appearance */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"); /* Default for light */
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+}
+
+html[data-theme="dark"] select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e0e0e0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"); /* White arrow for dark */
+}
+
+/* 8. Progress Bar */
+.progress-container { /* Renamed from .progress to avoid conflict if any default browser style exists */
+    background-color: #e9ecef; /* Light gray background */
+    border-radius: var(--default-border-radius);
+    height: 22px; /* Slightly taller */
+    width: 100%;
     margin-top: 0.5rem;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
 }
+
 .progress-bar {
-    background-color: #28a745;
+    background-color: var(--primary-color);
     height: 100%;
-    transition: width 0.4s ease;
+    transition: width 0.5s ease-in-out; /* Smoother transition */
+    display: flex; /* For potential text inside bar */
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-light);
+    font-size: 0.8rem;
+}
+
+/* 9. Utilities (Optional) */
+.text-center { text-align: center; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 1rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 1rem; }
+
+/* 10. Responsive Adjustments (integrating previous media query) */
+@media (max-width: 600px) { /* This was the previous breakpoint for nav */
+    nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
+    nav li {
+        margin: 0.4rem 0; /* Adjusted margin for stacked items */
+    }
+    header {
+        padding-bottom: 1rem; /* Ensure padding if nav wraps significantly */
+    }
+    /* Adjustments for when body was max-width: 360px */
+    /* These can be removed or adjusted if not needed with the new max-width */
+    /* body {
+        padding: 0.5rem; 
+    }
+    .card {
+        padding: 1rem;
+    } */
+}
+
+/* Ensure viewModeControls on budget page remains responsive */
+.viewModeControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem; /* Slightly adjusted gap */
+}
+.viewModeControls label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+@media (max-width: 450px) { /* Existing breakpoint for these controls */
+  .viewModeControls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Theme Toggle Button Style */
+#theme-toggle {
+    background-color: var(--secondary-color);
+    color: var(--text-color-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    /* margin-left: 1rem; -- Removed, header flex handles positioning */
+}
+
+#theme-toggle:hover {
+    background-color: var(--primary-hover-color);
+    border-color: var(--primary-hover-color);
+}
+
+/* Position theme toggle in header, if desired */
+/* header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+} */
+/* This might require adjusting header h1 text-align if it's still centered */
+
+/* Media query for larger screens where header items can be side-by-side */
+@media (min-width: 600px) { /* Matches nav stacking breakpoint */
+    header {
+        flex-direction: row; /* Arrange items in a row */
+        justify-content: space-between; /* Space out H1, toggle, nav */
+        align-items: center; /* Align items vertically */
+    }
+    header h1 {
+        margin-bottom: 0; /* Remove bottom margin when in row */
+    }
+    #theme-toggle {
+        margin-top: 0;
+        margin-bottom: 0;
+        order: 1; /* Optional: control order if needed, e.g., put toggle before nav */
+    }
+    nav {
+        order: 2; /* Optional: ensure nav is last */
+        width: auto; /* Allow nav to size based on content */
+    }
+}
+
+
+/* Additional Media Query for finer control if needed, e.g., for the 360px specific styles */
+@media (max-width: 400px) {
+    body {
+        padding: 0.5rem; /* Keep body padding smaller on very small screens */
+    }
+    .card {
+        padding: 1rem; /* Keep card padding smaller on very small screens */
+    }
+    header {
+        padding: 0.5rem; /* Reduce header padding */
+    }
+    header h1 {
+        font-size: 1.4rem; /* Slightly smaller h1 for very small screens */
+    }
+    nav a {
+        padding: 0.4rem 0.6rem; /* Adjust nav link padding */
+        font-size: 0.9rem;
+    }
+    #theme-toggle {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+        /* margin-left: 0.5rem; /* Adjust if needed for very small screens */
+    }
+}
+
+/* Styled List for Categories/Transactions etc. */
+.styled-list {
+    list-style: none;
+    padding: 0;
+}
+
+.styled-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.styled-list li:last-child {
+    border-bottom: none;
+}
+
+.list-item-info {
+    display: flex;
+    flex-direction: column; /* Stack info vertically */
+    flex-grow: 1;
+}
+
+.list-item-info .category-name, .list-item-info .item-name { /* .item-name for deposits/transactions */
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text-color-dark); /* Ensure it respects dark mode */
+}
+html[data-theme="dark"] .list-item-info .category-name, 
+html[data-theme="dark"] .list-item-info .item-name {
+    color: var(--text-color-dark); /* Explicitly set for dark theme */
+}
+
+
+.list-item-info .category-budget, .list-item-info .item-detail { /* .item-detail for deposits/transactions */
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+html[data-theme="dark"] .list-item-info .category-budget,
+html[data-theme="dark"] .list-item-info .item-detail {
+    color: var(--text-color-dark); /* Make it lighter in dark mode for readability */
+    opacity: 0.8;
+}
+
+
+.list-item-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-left: 1rem; /* Space between info and actions */
+}
+
+.list-item-actions .btn {
+    margin-top: 0; /* Override default btn margin */
+    margin-bottom: 0;
+}
+
+/* Text Muted */
+.text-muted {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+html[data-theme="dark"] .text-muted {
+    color: var(--text-color-dark);
+    opacity: 0.7;
 }
