@@ -23,10 +23,10 @@
     </nav>
   </header>
   <main>
-    <div class="card text-center"> <!-- Added text-center for overall alignment -->
-      <h2>Total Deposits</h2>
-      <p id="total-deposits-amount" class="text-large">Loading...</p>
-      <p class="text-muted mt-1">This is the sum of all recorded deposits.</p>
+    <div class="card text-center"> 
+      <h2>Available Cash</h2>
+      <p id="available-cash-amount" class="text-large">Calculating...</p>
+      <p class="text-muted mt-1">This is your total deposits minus total expenses.</p>
     </div>
 
     <div class="card">
@@ -88,27 +88,28 @@
     const depDateEl = document.getElementById("depDate"); 
     const addDepBtn = document.getElementById("addDepBtn");
     const depListEl = document.getElementById("depList");
-    const totalDepositsAmountEl = document.getElementById("total-deposits-amount"); // Added
+    const availableCashAmountEl = document.getElementById("available-cash-amount"); // Updated ID
 
     document.addEventListener("DOMContentLoaded", () => { 
-      // Set default date for depDate to today
       if (depDateEl) {
         depDateEl.valueAsDate = new Date();
       }
-      loadDepositsUI();
+      updateFinancialOverview(); // Renamed function call
     });
     addDepBtn.addEventListener("click", onAddDeposit);
 
-    async function loadDepositsUI() {
+    async function updateFinancialOverview() { // Renamed function
       depListEl.innerHTML = ""; 
-      if (totalDepositsAmountEl) totalDepositsAmountEl.textContent = "Loading...";
+      if (availableCashAmountEl) availableCashAmountEl.textContent = "Calculating...";
       let totalDeposits = 0;
+      let totalExpenses = 0;
 
       try {
-        const collRef = collection(db, "deposits");
-        const snap = await getDocs(collRef);
+        // Fetch and sum deposits
+        const depositsCollRef = collection(db, "deposits");
+        const depositsSnap = await getDocs(depositsCollRef);
         let deposits = [];
-        snap.forEach(docSnap => {
+        depositsSnap.forEach(docSnap => {
           const depositData = docSnap.data();
           deposits.push({ id: docSnap.id, ...depositData });
           if (typeof depositData.amount === 'number') {
@@ -116,11 +117,24 @@
           }
         });
 
-        if (totalDepositsAmountEl) {
-          totalDepositsAmountEl.textContent = `$${totalDeposits.toFixed(2)}`;
+        // Fetch and sum expenses (transactions)
+        const expensesCollRef = collection(db, "transactions");
+        const expensesSnap = await getDocs(expensesCollRef);
+        expensesSnap.forEach(docSnap => {
+          const expenseData = docSnap.data();
+          // Assuming all transactions are expenses for this calculation
+          // Or filter by type if needed: if (expenseData.type === 'expense' || expenseData.type === 'rent_expense' etc.)
+          if (typeof expenseData.amount === 'number') {
+            totalExpenses += expenseData.amount;
+          }
+        });
+
+        const availableCash = totalDeposits - totalExpenses;
+        if (availableCashAmountEl) {
+          availableCashAmountEl.textContent = `$${availableCash.toFixed(2)}`;
         }
         
-        // Sort deposits by timestamp, newest first
+        // Sort and display deposits (existing logic)
         deposits.sort((a, b) => {
           const dateA = a.timestamp ? new Date(a.timestamp) : 0;
           const dateB = b.timestamp ? new Date(b.timestamp) : 0;
@@ -160,7 +174,7 @@
           delBtn.onclick = async () => {
             if (confirm(`Delete deposit of $${(dep.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
               await deleteDoc(doc(db, "deposits", dep.id));
-              loadDepositsUI(); 
+              updateFinancialOverview(); // Renamed function call
             }
           };
           actionsDiv.appendChild(delBtn);
@@ -169,9 +183,9 @@
           depListEl.appendChild(li);
         });
       } catch(err) {
-        console.error("Error loading deposits: ", err);
-        if (totalDepositsAmountEl) totalDepositsAmountEl.textContent = "Error";
-        alert("Error loading deposits: " + err.message);
+        console.error("Error loading financial data: ", err);
+        if (availableCashAmountEl) availableCashAmountEl.textContent = "Error";
+        alert("Error loading financial data: " + err.message);
       }
     }
 
@@ -201,8 +215,8 @@
           timestamp: timestamp // Use the selected date
         });
         depAmtEl.value = ""; // Clear amount
-        // depDateEl.valueAsDate = new Date(); // Reset date to today - might be annoying if back-dating
-        loadDepositsUI(); // Refresh the list
+        // depDateEl.valueAsDate = new Date(); 
+        updateFinancialOverview(); // Renamed function call
       } catch(err) {
         alert("Error creating deposit: " + err.message);
       }
