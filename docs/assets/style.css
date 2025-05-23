@@ -213,7 +213,8 @@ nav ul {
     padding: 0 0.5rem; /* Add padding to ul for spacing from screen edges if scrolling */
     margin: 0;
     display: flex;
-    flex-wrap: nowrap; /* Prevent tabs from wrapping to next line */
+    flex-direction: row; /* Explicitly ensure row direction */
+    flex-wrap: nowrap !important; /* Ensure tabs never wrap to the next line */
     justify-content: flex-start; 
     border-bottom: 1px solid var(--separator-color); /* Line for tabs to sit on */
 }
