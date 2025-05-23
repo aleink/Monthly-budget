@@ -187,14 +187,15 @@ nav {
     padding: 0; /* Remove padding from nav container */
     width: 100%; /* Nav takes full width below branding or to the side */
     margin-top: 0; /* Reset margin, tabs will manage their own spacing */
-    overflow-x: auto; /* Enable horizontal scrolling for tabs */
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-    scrollbar-width: thin; /* Firefox scrollbar styling */
-    scrollbar-color: var(--border-color) var(--background-color); /* Firefox scrollbar styling */
+    overflow-x: auto !important; /* ENSURE horizontal scrolling for tabs */
+    overflow-y: hidden !important; /* Prevent vertical scrollbar on nav if content is too tall */
+    -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
+    scrollbar-width: thin !important; /* Firefox scrollbar styling */
+    scrollbar-color: var(--border-color) var(--background-color) !important; /* Firefox scrollbar styling */
 }
 /* Webkit scrollbar styling */
 nav::-webkit-scrollbar {
-    height: 5px; /* Height of the scrollbar */
+    height: 5px !important; 
 }
 nav::-webkit-scrollbar-track {
     background: var(--background-color);
@@ -212,16 +213,18 @@ nav ul {
     list-style: none;
     padding: 0 0.5rem; /* Add padding to ul for spacing from screen edges if scrolling */
     margin: 0;
-    display: flex;
-    flex-direction: row; /* Explicitly ensure row direction */
-    flex-wrap: nowrap !important; /* Ensure tabs never wrap to the next line */
+    display: flex !important;
+    flex-direction: row !important; 
+    flex-wrap: nowrap !important;
+    white-space: nowrap; /* Additional measure to prevent wrapping of inline-block items */
     justify-content: flex-start; 
     border-bottom: 1px solid var(--separator-color); /* Line for tabs to sit on */
 }
 
 nav li {
     margin: 0; 
-    flex-shrink: 0; /* Prevent tabs from shrinking */
+    flex-shrink: 0 !important; 
+    display: inline-block !important; /* FORCE inline-block behavior for li items */
 }
 
 nav a {
@@ -445,27 +448,11 @@ html[data-theme="dark"] select {
 .mt-2 { margin-top: 0.5rem; }
 .mt-3 { margin-top: 1rem; }
 
-/* 10. Responsive Adjustments (integrating previous media query) */
-@media (max-width: 600px) { /* This was the previous breakpoint for nav */
-    nav ul {
-        flex-direction: column;
-        align-items: center;
-    }
-    nav li {
-        margin: 0.4rem 0; /* Adjusted margin for stacked items */
-    }
-    header {
-        padding-bottom: 1rem; /* Ensure padding if nav wraps significantly */
-    }
-    /* Adjustments for when body was max-width: 360px */
-    /* These can be removed or adjusted if not needed with the new max-width */
-    /* body {
-        padding: 0.5rem; 
-    }
-    .card {
-        padding: 1rem;
-    } */
-}
+/* 10. Responsive Adjustments */
+
+/* The @media (max-width: 600px) block that was previously here and caused 
+   nav ul flex-direction: column has been REMOVED. 
+   This is critical for ensuring tabs always stay in a row. */
 
 /* Ensure viewModeControls on budget page remains responsive */
 .viewModeControls {
