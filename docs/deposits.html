@@ -73,16 +73,17 @@
   </main>
   <script src="assets/theme.js"></script>
   <script type="module">
-    import { db } from "./firebase.js";
+    // Corrected path for firebase.js (assuming it's in parent directory of 'docs')
+    import { db } from "../firebase.js"; 
     import {
       collection,
       addDoc,
       getDocs,
       deleteDoc,
       doc
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    // Corrected path for Firestore SDK functions (assuming local ES module)
+    } from "../../firebase/firebase-firestore.js"; 
 
-    const depTypeEl = document.getElementById("depType");
     const depAmtEl = document.getElementById("depAmount");
     const depDateEl = document.getElementById("depDate"); 
     const addDepBtn = document.getElementById("addDepBtn");
