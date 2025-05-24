@@ -72,13 +72,15 @@
     document.addEventListener("DOMContentLoaded", () => {
       const radios = document.getElementsByName("cycleToggle");
       radios.forEach(radio => {
-        radio.addEventListener("change", () => {
-          currentCycle = radio.value;
-        });
+        radio.addEventListener("change", loadBudget); // Call loadBudget directly
       });
-      document.getElementById("reloadBtn").addEventListener("click", loadBudget);
+      
+      const reloadBtn = document.getElementById("reloadBtn");
+      if (reloadBtn) { 
+          reloadBtn.addEventListener("click", loadBudget);
+      }
 
-      loadBudget();
+      loadBudget(); // Initial load
     });
 
     async function loadBudget() {
@@ -86,10 +88,11 @@
       const radios = document.getElementsByName("cycleToggle");
       for (let r of radios) {
         if (r.checked) {
-          currentCycle = r.value;
+          currentCycle = r.value; // This correctly sets the global currentCycle
           break;
         }
       }
+      console.log("Loading budget for cycle:", currentCycle); // For debugging
 
       const cashflowEl = document.getElementById("cashflow");
       const catBudgetList = document.getElementById("catBudgetList");
