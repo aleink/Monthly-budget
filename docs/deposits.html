@@ -72,173 +72,192 @@
     </div>
   </main>
   <script src="assets/theme.js"></script>
-  <script type="module">
-    // Corrected path for firebase.js (assuming it's in parent directory of 'docs')
-    import { db } from "../firebase.js"; 
-    import {
-      collection,
-      addDoc,
-      getDocs,
-      deleteDoc,
-      doc
-    // Corrected path for Firestore SDK functions (assuming local ES module)
-    } from "../../firebase/firebase-firestore.js"; 
+<script type="module">
+  // Corrected path to firebase.js (it's in the same 'docs' directory)
+  import { db } from "./firebase.js"; 
 
-    const depAmtEl = document.getElementById("depAmount");
-    const depDateEl = document.getElementById("depDate"); 
-    const addDepBtn = document.getElementById("addDepBtn");
-    const depListEl = document.getElementById("depList");
-    const availableCashAmountEl = document.getElementById("available-cash-amount"); // Updated ID
+  // Import ALL necessary Firebase functions directly from the Firebase CDN
+  import {
+    collection,
+    addDoc,
+    getDocs,
+    deleteDoc,
+    doc
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js"; 
 
-    document.addEventListener("DOMContentLoaded", () => { 
-      if (depDateEl) {
-        depDateEl.valueAsDate = new Date();
-      }
-      updateFinancialOverview(); // Renamed function call
-    });
+  const depTypeEl = document.getElementById("depType");
+  const depAmtEl = document.getElementById("depAmount");
+  const depDateEl = document.getElementById("depDate"); 
+  const addDepBtn = document.getElementById("addDepBtn");
+  const depListEl = document.getElementById("depList");
+  const availableCashAmountEl = document.getElementById("available-cash-amount");
+
+  document.addEventListener("DOMContentLoaded", () => { 
+    if (depDateEl) {
+      depDateEl.valueAsDate = new Date(); 
+    }
+    if (typeof updateFinancialOverview === 'function') {
+      updateFinancialOverview(); 
+    } else {
+      console.error('updateFinancialOverview function not found on DOMContentLoaded');
+    }
+  });
+
+  if (addDepBtn) { 
     addDepBtn.addEventListener("click", onAddDeposit);
+  } else {
+    console.error("Add Deposit button not found.");
+  }
 
-    async function updateFinancialOverview() { 
-      depListEl.innerHTML = ""; 
-      if (availableCashAmountEl) availableCashAmountEl.textContent = "Calculating...";
-      
-      let totalDeposits = 0;
-      let totalExpenses = 0;
-      let deposits = [];
-      let errorOccurred = false;
+  async function updateFinancialOverview() { 
+    if (!depListEl || !availableCashAmountEl) {
+      console.error("Required DOM elements for financial overview are missing.");
+      if (availableCashAmountEl) availableCashAmountEl.textContent = "Error: Page setup issue.";
+      return;
+    }
 
-      // Step 1: Fetch and process deposits
-      try {
-        const depositsCollRef = collection(db, "deposits");
-        const depositsSnap = await getDocs(depositsCollRef);
-        depositsSnap.forEach(docSnap => {
-          const depositData = docSnap.data();
-          deposits.push({ id: docSnap.id, ...depositData });
-          if (typeof depositData.amount === 'number') {
-            totalDeposits += depositData.amount;
-          }
-        });
-      } catch (err) {
-        console.error("Error loading deposits: ", err);
-        depListEl.innerHTML = "<li class='text-danger'>Could not load deposit list.</li>";
-        errorOccurred = true;
-        // Potentially alert for deposits specific error: alert("Error loading deposit data: " + err.message);
-      }
+    depListEl.innerHTML = "<li>Loading deposits...</li>"; 
+    availableCashAmountEl.textContent = "Calculating...";
+    
+    let totalDeposits = 0;
+    let totalExpenses = 0;
+    let deposits = [];
+    let errorLoadingDeposits = false;
+    let errorLoadingExpenses = false;
 
-      // Step 2: Fetch and process transactions (expenses)
-      try {
-        const expensesCollRef = collection(db, "transactions");
-        const expensesSnap = await getDocs(expensesCollRef);
-        expensesSnap.forEach(docSnap => {
-          const expenseData = docSnap.data();
-          if (typeof expenseData.amount === 'number') {
-            totalExpenses += expenseData.amount;
-          }
-        });
-      } catch (err) {
-        console.error("Error loading transactions for available cash calculation: ", err);
-        // Don't set errorOccurred to true here if deposits loaded,
-        // as we might still want to display available cash based on deposits alone
-        // or indicate that expenses couldn't be factored in.
-        if (availableCashAmountEl) availableCashAmountEl.textContent = "Error (Expenses)";
-        // Potentially alert for transaction specific error: alert("Error loading expense data: " + err.message);
-      }
+    try {
+      const depositsCollRef = collection(db, "deposits");
+      const depositsSnap = await getDocs(depositsCollRef);
+      depositsSnap.forEach(docSnap => {
+        const depositData = docSnap.data();
+        deposits.push({ id: docSnap.id, ...depositData });
+        if (typeof depositData.amount === 'number') {
+          totalDeposits += depositData.amount;
+        }
+      });
+    } catch (err) {
+      console.error("Error loading deposits: ", err);
+      if (depListEl) depListEl.innerHTML = "<li class='text-danger'>Could not load deposit list.</li>";
+      errorLoadingDeposits = true;
+    }
 
-      // Step 3: Calculate and display available cash
-      if (availableCashAmountEl && !availableCashAmountEl.textContent.includes("Error")) { // Check if error already set by expenses
+    try {
+      const expensesCollRef = collection(db, "transactions");
+      const expensesSnap = await getDocs(expensesCollRef);
+      expensesSnap.forEach(docSnap => {
+        const expenseData = docSnap.data();
+        if (typeof expenseData.amount === 'number') {
+          totalExpenses += expenseData.amount;
+        }
+      });
+    } catch (err) {
+      console.error("Error loading transactions for available cash calculation: ", err);
+      errorLoadingExpenses = true;
+    }
+
+    if (availableCashAmountEl) {
+      if (errorLoadingDeposits) {
+        availableCashAmountEl.textContent = "Error (Deposits)";
+      } else if (errorLoadingExpenses) {
+        availableCashAmountEl.textContent = "Error (Expenses)";
+      } else {
         const availableCash = totalDeposits - totalExpenses;
         availableCashAmountEl.textContent = `$${availableCash.toFixed(2)}`;
-      } else if (errorOccurred && availableCashAmountEl) { // If deposits failed
-         availableCashAmountEl.textContent = "Error";
       }
+    }
 
-
-      // Step 4: Sort and display deposits (only if successfully fetched)
-      if (deposits.length > 0 || !errorOccurred) { // Display even if empty, unless initial deposit load failed
+    if (depListEl && !errorLoadingDeposits) {
+      depListEl.innerHTML = ""; 
+      if (deposits.length === 0) {
+        depListEl.innerHTML = "<li>No deposits recorded yet.</li>";
+      } else {
         deposits.sort((a, b) => {
           const dateA = a.timestamp ? new Date(a.timestamp) : 0;
           const dateB = b.timestamp ? new Date(b.timestamp) : 0;
-          return dateB - dateA; // Sort descending
+          return dateB - dateA; 
         });
-
         deposits.forEach(dep => {
           const li = document.createElement("li");
-
           const infoDiv = document.createElement("div");
           infoDiv.className = "list-item-info";
-
           const typeSpan = document.createElement("span");
           typeSpan.className = "item-name"; 
-          typeSpan.textContent = dep.type.charAt(0).toUpperCase() + dep.type.slice(1); 
+          typeSpan.textContent = dep.type ? (dep.type.charAt(0).toUpperCase() + dep.type.slice(1)) : "N/A"; 
           infoDiv.appendChild(typeSpan);
-
           const amountSpan = document.createElement("span");
           amountSpan.className = "item-detail"; 
           amountSpan.textContent = `Amount: $${(dep.amount || 0).toFixed(2)}`;
           infoDiv.appendChild(amountSpan);
-          
           const dateStr = dep.timestamp ? new Date(dep.timestamp).toLocaleDateString() : "Unknown Date";
           const dateSpan = document.createElement("span");
           dateSpan.className = "item-detail";
           dateSpan.textContent = `Date: ${dateStr}`;
           infoDiv.appendChild(dateSpan);
-
           li.appendChild(infoDiv);
-
           const actionsDiv = document.createElement("div");
           actionsDiv.className = "list-item-actions";
-
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.className = "btn btn-sm btn-delete"; 
           delBtn.onclick = async () => {
             if (confirm(`Delete deposit of $${(dep.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
-              await deleteDoc(doc(db, "deposits", dep.id));
-              updateFinancialOverview(); 
+              try {
+                await deleteDoc(doc(db, "deposits", dep.id));
+                updateFinancialOverview(); 
+              } catch (err) {
+                console.error("Error deleting deposit:", err);
+                alert("Error deleting deposit: " + err.message);
+              }
             }
           };
           actionsDiv.appendChild(delBtn);
-
           li.appendChild(actionsDiv);
           depListEl.appendChild(li);
         });
       }
-      // Removed the broad catch here to allow separate error handling for deposits and transactions
-      // If a global error needs to be caught (e.g., for UI updates common to both), it can be wrapped higher up.
     }
+  }
 
-    async function onAddDeposit() {
-      const typeVal = depTypeEl.value;
-      const amtVal = parseFloat(depAmtEl.value.trim());
-      const dateVal = depDateEl.value; // Get date value
-
-      if (isNaN(amtVal) || amtVal <= 0) {
-        alert("Please enter a valid positive amount for the deposit.");
-        return;
-      }
-      if (!dateVal) {
-        alert("Please select a date for the deposit.");
-        return;
-      }
-      // Convert selected date to ISO string at the beginning of the day in local timezone
-      const selectedDate = new Date(dateVal);
-      selectedDate.setHours(0, 0, 0, 0); // Set to start of day
-      const timestamp = selectedDate.toISOString();
-
-      try {
-        const collRef = collection(db, "deposits");
-        await addDoc(collRef, {
-          type: typeVal,
-          amount: amtVal,
-          timestamp: timestamp // Use the selected date
-        });
-        depAmtEl.value = ""; // Clear amount
-        // depDateEl.valueAsDate = new Date(); 
-        updateFinancialOverview(); // Renamed function call
-      } catch(err) {
-        alert("Error creating deposit: " + err.message);
-      }
+  async function onAddDeposit() {
+    if (!depTypeEl || !depAmtEl || !depDateEl) {
+      console.error("Deposit form elements not found.");
+      alert("Error: Deposit form is not set up correctly.");
+      return;
     }
-  </script>
+    const typeVal = depTypeEl.value;
+    const amtVal = parseFloat(depAmtEl.value.trim());
+    const dateVal = depDateEl.value;
+
+    if (isNaN(amtVal) || amtVal <= 0) {
+      alert("Please enter a valid positive amount for the deposit.");
+      return;
+    }
+    if (!dateVal) {
+      alert("Please select a date for the deposit.");
+      return;
+    }
+    
+    const parts = dateVal.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; 
+    const day = parseInt(parts[2], 10);
+    const selectedDate = new Date(year, month, day); 
+    const timestamp = selectedDate.toISOString();
+
+    try {
+      const collRef = collection(db, "deposits");
+      await addDoc(collRef, {
+        type: typeVal,
+        amount: amtVal,
+        timestamp: timestamp
+      });
+      depAmtEl.value = ""; 
+      updateFinancialOverview(); 
+    } catch(err) {
+      console.error("Error creating deposit:", err);
+      alert("Error creating deposit: " + err.message);
+    }
+  }
+</script>
 </body>
 </html>
