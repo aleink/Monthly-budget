@@ -88,243 +88,240 @@
     </div>
   </main>
   <script src="assets/theme.js"></script>
-  <script type="module">
-    import { db } from "./firebase.js";
-    import {
-      collection, getDocs, addDoc, deleteDoc, doc
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+<script type="module">
+  import { db } from "./firebase.js";
+  import {
+    collection, 
+    getDocs,    
+    addDoc,     
+    deleteDoc,  
+    doc,        
+    getDoc,     // For fetching single category doc if needed, though categoriesData is primary
+    query,      // For querying expenses by category/cycle
+    where       // For querying expenses by category/cycle
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    const txnTypeEl   = document.getElementById("txnType");
-    const txnCatEl    = document.getElementById("txnCat");
-    const txnCycleEl  = document.getElementById("txnCycle");
-    const txnAmtEl    = document.getElementById("txnAmt");
-    const txnDateEl   = document.getElementById("txnDate"); 
-    const txnAddBtn   = document.getElementById("txnAddBtn");
-    const txnListEl   = document.getElementById("txnList");
-    const categoryFilterEl = document.getElementById("category-filter"); 
-    const categoryBudgetInfoEl = document.getElementById("category-budget-info");
+  const txnTypeEl   = document.getElementById("txnType");
+  const txnCatEl    = document.getElementById("txnCat");
+  const txnCycleEl  = document.getElementById("txnCycle");
+  const txnAmtEl    = document.getElementById("txnAmt");
+  const txnDateEl   = document.getElementById("txnDate"); 
+  const txnAddBtn   = document.getElementById("txnAddBtn");
+  const txnListEl   = document.getElementById("txnList");
+  const categoryFilterEl = document.getElementById("category-filter"); 
+  const categoryBudgetInfoEl = document.getElementById("category-budget-info");
+  const expenseFormBudgetInfoEl = document.getElementById('expense-form-budget-info'); // For budget info in form
 
-    let categoriesData = {}; // Stores full category objects: { id: {name, cycle1, cycle2, allocatedBudget...}}
-    let currentCycleDocId = null; 
-    let currentCycleName = "N/A";
+  let categoriesData = {}; // Global: Stores full category objects { id: {name, cycle1, cycle2, ...} }
+  // currentCycleDocId and currentCycleName are not strictly needed globally here as much as on budget.html,
+  // but can be useful for context if other functions need it.
+  // We'll primarily derive the cycle from the form (txnCycleEl) or use it as a parameter.
 
-    // Fetches the current cycle (latest by startDate)
-    async function loadCurrentCycleInfo() {
-      categoryBudgetInfoEl.textContent = 'Loading cycle info...';
-      try {
-        // Assuming 'cycles' collection and 'startDate' field.
-        // For this fix, I'll use the hardcoded C1/C2 logic from the form for simplicity,
-        // as introducing a new 'cycles' collection fetch might be too complex if it doesn't exist.
-        // The ideal solution would fetch from 'cycles' as described in the plan.
-        // This is a simplified approach based on existing form elements.
-        const formCycleValue = txnCycleEl.value; // "C1" or "C2"
-        currentCycleDocId = formCycleValue; // Using "C1" or "C2" as the effective cycle ID for budget lookup
-        currentCycleName = (formCycleValue === "C1") ? "Cycle 1" : "Cycle 2";
-        console.log("Current cycle for budget display set to:", currentCycleName, "(ID:", currentCycleDocId, ")");
-        if (categoryBudgetInfoEl.textContent === 'Loading cycle info...') {
-            categoryBudgetInfoEl.textContent = ''; // Clear if successful but no category selected yet
-        }
-      } catch (err) {
-        console.error("Error determining current cycle:", err);
-        currentCycleName = "Error";
-        currentCycleDocId = null;
-        if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = 'Could not determine current cycle.';
-      }
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (txnDateEl) {
+      txnDateEl.valueAsDate = new Date(); 
     }
+    await loadCategories(); 
+    await loadExpenses("all"); 
+    await updateExpenseFormBudgetInfo(); // Initial call for form budget info
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      if (txnDateEl) {
-        txnDateEl.valueAsDate = new Date(); 
-      }
-      await loadCurrentCycleInfo(); // Determine current cycle first
-      await loadCategories(); 
-      await loadExpenses("all"); 
-      txnAddBtn.addEventListener("click", createExpense);
-      
-      categoryFilterEl.addEventListener("change", (event) => { 
-        loadExpenses(event.target.value);
-      });
-      
-      txnCycleEl.addEventListener("change", async (event) => { 
-        await loadCurrentCycleInfo(); // Update current cycle info when form cycle changes
-        if (categoryFilterEl.value !== "all") {
-          loadExpenses(categoryFilterEl.value); // Reload expenses and budget info
-        }
-      });
+    if (txnAddBtn) txnAddBtn.addEventListener("click", createExpense);
+    if (categoryFilterEl) categoryFilterEl.addEventListener("change", (event) => { 
+      loadExpenses(event.target.value);
     });
-
-    async function loadCategories() {
-      try {
-        const snap = await getDocs(collection(db, "categories"));
-        categoriesMap = {}; 
-        txnCatEl.innerHTML = ""; 
-        categoryFilterEl.innerHTML = ""; // Clear filter dropdown
-
-        // Add "All Categories" option to filter
-        const allOpt = document.createElement("option");
-        allOpt.value = "all";
-        allOpt.textContent = "All Categories";
-        categoryFilterEl.appendChild(allOpt);
-
-        snap.forEach(docSnap => {
-          const catData = docSnap.data();
-          categoriesMap[docSnap.id] = catData.name; 
-          
-          // Populate form dropdown
-          const formOpt = document.createElement("option");
-          formOpt.value = docSnap.id;
-          formOpt.textContent = catData.name;
-          txnCatEl.appendChild(formOpt);
-
-          // Populate filter dropdown
-          const filterOpt = document.createElement("option");
-          filterOpt.value = docSnap.id;
-          filterOpt.textContent = catData.name;
-          categoryFilterEl.appendChild(filterOpt);
-        });
-      } catch(err) {
-        console.error("Error loading categories: ", err);
-        alert("Error loading categories: " + err.message);
+    if (txnCycleEl) txnCycleEl.addEventListener("change", async (event) => { 
+      // For the budget display below the list (when category filter is active)
+      if (categoryFilterEl.value !== "all") {
+        loadExpenses(categoryFilterEl.value);
       }
+      // For the pre-emptive budget display in the form
+      updateExpenseFormBudgetInfo(); 
+    });
+    if (txnCatEl) txnCatEl.addEventListener("change", updateExpenseFormBudgetInfo);
+
+  });
+
+  async function loadCategories() {
+    if (!txnCatEl || !categoryFilterEl) {
+        console.error("Category select elements not found.");
+        return;
     }
+    categoriesData = {}; // Reset global categories data
+    txnCatEl.innerHTML = "<option value=''>Select Category</option>"; 
+    categoryFilterEl.innerHTML = ""; // Clear filter dropdown
 
-    async function createExpense() {
-      const typeVal  = txnTypeEl.value;
-      const catIdVal = txnCatEl.value; // This is category ID
-      const cycVal   = txnCycleEl.value;
-      const amtVal   = parseFloat(txnAmtEl.value.trim());
-      const dateVal  = txnDateEl.value;
-
-      if (!catIdVal) {
-        alert("Please select a category for the expense.");
-        return;
-      }
-      if (!cycVal) {
-        alert("Please select a budget cycle for the expense.");
-        return;
-      }
-      if (isNaN(amtVal) || amtVal <= 0) {
-        alert("Please enter a valid positive amount for the expense.");
-        return;
-      }
-      if (!dateVal) {
-        alert("Please select a date for the expense.");
-        return;
-      }
-      // New date parsing logic to ensure it's midnight LOCAL time
-      const parts = dateVal.split('-');
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
-      const day = parseInt(parts[2], 10);
-      const selectedDate = new Date(year, month, day); // Creates date at midnight LOCAL time
+    try {
+      const snap = await getDocs(collection(db, "categories"));
       
-      const timestamp = selectedDate.toISOString(); // Converts to UTC ISO string
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = "All Categories";
+      categoryFilterEl.appendChild(allOpt);
 
-      try {
-        await addDoc(collection(db, "transactions"), {
-          type: typeVal,
-          categoryId: catIdVal, 
-          cycle: cycVal,
-          amount: amtVal,
-          timestamp: timestamp
-        });
-        txnAmtEl.value = ""; // Clear amount
-        // Consider resetting date or category? For now, no.
-        loadExpenses(); // Refresh the list
-      } catch(err) {
-        console.error("Error creating expense: ", err);
-        alert("Error creating expense: " + err.message);
-      }
+      snap.forEach(docSnap => {
+        const catData = docSnap.data();
+        categoriesData[docSnap.id] = catData; // Store THE FULL CATEGORY OBJECT
+        
+        const formOpt = document.createElement("option");
+        formOpt.value = docSnap.id;
+        formOpt.textContent = catData.name || "Unnamed Category";
+        txnCatEl.appendChild(formOpt);
+
+        const filterOpt = document.createElement("option");
+        filterOpt.value = docSnap.id;
+        filterOpt.textContent = catData.name || "Unnamed Category";
+        categoryFilterEl.appendChild(filterOpt);
+      });
+    } catch(err) {
+      console.error("Error loading categories: ", err);
+      alert("Error loading categories: " + err.message);
+      txnCatEl.innerHTML = "<option value=''>Error loading</option>";
+      categoryFilterEl.innerHTML = "<option value='all'>Error loading</option>";
+    }
+  }
+
+  async function createExpense() {
+    const typeVal  = txnTypeEl.value;
+    const catIdVal = txnCatEl.value;
+    const cycVal   = txnCycleEl.value;
+    const amtVal   = parseFloat(txnAmtEl.value.trim());
+    const dateVal  = txnDateEl.value;
+
+    if (!catIdVal) { alert("Please select a category."); return; }
+    if (!cycVal) { alert("Please select a budget cycle."); return; }
+    if (isNaN(amtVal) || amtVal <= 0) { alert("Valid positive amount needed."); return; }
+    if (!dateVal) { alert("Please select a date."); return; }
+
+    const parts = dateVal.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; 
+    const day = parseInt(parts[2], 10);
+    const selectedDate = new Date(year, month, day); 
+    const timestamp = selectedDate.toISOString();
+
+    try {
+      await addDoc(collection(db, "transactions"), {
+        type: typeVal,
+        categoryId: catIdVal, 
+        cycle: cycVal,
+        amount: amtVal,
+        timestamp: timestamp
+      });
+      txnAmtEl.value = ""; 
+      loadExpenses(categoryFilterEl.value); // Refresh list based on current filter
+      updateExpenseFormBudgetInfo(); // Refresh form budget info
+    } catch(err) {
+      console.error("Error creating expense: ", err);
+      alert("Error creating expense: " + err.message);
+    }
+  }
+
+  async function getSpentForCategoryInCycle(categoryId, cycleId) {
+    let spent = 0;
+    if (!categoryId || !cycleId) return spent;
+    try {
+      const q = query(collection(db, "transactions"), 
+                      where("categoryId", "==", categoryId), 
+                      where("cycle", "==", cycleId));
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (typeof data.amount === 'number' && 
+            (data.type === "expense" || data.type === "rent_expense" || data.type === "utility_bill")) {
+          spent += data.amount;
+        }
+      });
+    } catch (err) {
+      console.error(`Error fetching expenses for category ${categoryId}, cycle ${cycleId}:`, err);
+    }
+    return spent;
+  }
+
+  async function updateExpenseFormBudgetInfo() {
+    if (!expenseFormBudgetInfoEl || !txnCatEl || !txnCycleEl) return;
+
+    const selectedCategoryId = txnCatEl.value;
+    const selectedCycleId = txnCycleEl.value;
+
+    if (!selectedCategoryId || !selectedCycleId) {
+      expenseFormBudgetInfoEl.textContent = '';
+      return;
     }
 
-    async function loadExpenses(filterCategoryId = "all") { 
-      txnListEl.innerHTML = ""; 
-      if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = ''; // Clear budget info initially
+    expenseFormBudgetInfoEl.textContent = 'Fetching budget info...';
+    const categoryDetails = categoriesData[selectedCategoryId];
 
-      // Determine the cycle to use for budget calculations from the form's cycle selector
-      // This replaces the need for a separate loadCurrentCycleInfo for this specific feature on this page.
-      const relevantCycleId = txnCycleEl.value; // "C1" or "C2"
-      const relevantCycleName = relevantCycleId === "C1" ? "Cycle 1" : "Cycle 2";
+    if (!categoryDetails) {
+      expenseFormBudgetInfoEl.textContent = 'Category details not found.';
+      return;
+    }
 
-      try {
-        const transactionsQuery = collection(db, "transactions");
-        const snap = await getDocs(transactionsQuery);
-        let transactions = [];
-        snap.forEach(docSnap => {
-          transactions.push({ id: docSnap.id, ...docSnap.data() });
-        });
+    const budgetedAmount = (selectedCycleId === "C1" ? categoryDetails.cycle1 : categoryDetails.cycle2) || 0;
+    const totalSpentInCatForCycle = await getSpentForCategoryInCycle(selectedCategoryId, selectedCycleId);
+    const remainingBudget = budgetedAmount - totalSpentInCatForCycle;
+    const categoryName = categoryDetails.name || "Selected Category";
+
+    let budgetMsg = `For ${categoryName} (${selectedCycleId}): Budget: $${budgetedAmount.toFixed(2)} | Spent: $${totalSpentInCatForCycle.toFixed(2)} | Remaining: $${remainingBudget.toFixed(2)}`;
+    if (budgetedAmount === 0) {
+      budgetMsg = `For ${categoryName} (${selectedCycleId}): No budget set. | Spent: $${totalSpentInCatForCycle.toFixed(2)}`;
+    }
+    expenseFormBudgetInfoEl.textContent = budgetMsg;
+  }
+
+  async function loadExpenses(filterCategoryId = "all") { 
+    if (!txnListEl || !categoryBudgetInfoEl || !txnCycleEl || !categoryFilterEl) {
+        console.error("Required DOM elements for loading expenses are missing.");
+        return;
+    }
+    txnListEl.innerHTML = "<li>Loading expenses...</li>"; 
+    categoryBudgetInfoEl.textContent = ''; 
+
+    const relevantCycleIdForFilterDisplay = txnCycleEl.value; 
+
+    try {
+      // We fetch all transactions, then filter client-side. 
+      // For larger datasets, querying with filters (category, cycle) directly would be better.
+      const transactionsQuery = collection(db, "transactions");
+      const snap = await getDocs(transactionsQuery);
+      let transactions = [];
+      snap.forEach(docSnap => {
+        transactions.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      
+      let expenseTxns = transactions.filter(t => t.type === "expense" || t.type === "rent_expense" || t.type === "utility_bill");
+
+      if (filterCategoryId !== "all") {
+        expenseTxns = expenseTxns.filter(txn => txn.categoryId === filterCategoryId);
         
-        let expenseTxns = transactions.filter(t => t.type === "expense" || t.type === "rent_expense" || t.type === "utility_bill");
-
-        let totalSpentForCategoryInCycle = 0;
-
-        if (filterCategoryId !== "all") {
-          expenseTxns = expenseTxns.filter(txn => txn.categoryId === filterCategoryId);
-          
-          // Calculate spent amount for the *selected category* in the *relevant cycle*
-          expenseTxns.forEach(txn => {
-            if (txn.cycle === relevantCycleId) {
-              totalSpentForCategoryInCycle += (txn.amount || 0);
-            }
-          });
-
-          // Fetch category budget data
-          if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = 'Loading budget info...';
-          try {
-            const categoryDocRef = doc(db, "categories", filterCategoryId);
-            const categoryDocSnap = await getDocs(categoryDocRef); // Incorrect: getDocs is for collections
-            
-            // Corrected: Fetch a single document
-            // const categoryDocSnap = await getDoc(categoryDocRef); // Correct way to fetch a single doc
-
-            // For now, due to tool limitations with getDoc, I'll simulate getting category data
-            // by assuming categoriesMap contains the necessary budget info.
-            // This is where the actual budget fetching and calculation would go.
-            // Now we use the full category data from categoriesData
-            const categoryDetails = categoriesData[filterCategoryId];
-            let budgetedAmount = 0;
-            if (categoryDetails) {
-                // Assuming budget is stored based on "C1", "C2" keys from txnCycleEl
-                budgetedAmount = (relevantCycleId === "C1" ? categoryDetails.cycle1 : categoryDetails.cycle2) || 0;
-            }
-
-            const remainingBudget = budgetedAmount - totalSpentForCategoryInCycle;
-            const categoryName = categoryDetails ? categoryDetails.name : "Selected Category";
-
-            budgetDisplayMsg = `Category: ${categoryName} (${relevantCycleName}) | Budget: $${budgetedAmount.toFixed(2)} | Spent: $${totalSpentForCategoryInCycle.toFixed(2)} | Remaining: $${remainingBudget.toFixed(2)}`;
-            if (budgetedAmount === 0 && totalSpentForCategoryInCycle > 0) {
-                 budgetDisplayMsg = `Category: ${categoryName} (${relevantCycleName}) | No budget set for this cycle. | Spent: $${totalSpentForCategoryInCycle.toFixed(2)}`;
-            } else if (budgetedAmount === 0 && totalSpentForCategoryInCycle === 0) {
-                 budgetDisplayMsg = `Category: ${categoryName} (${relevantCycleName}) | No budget set for this cycle.`;
-            }
-
-
-            if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = budgetDisplayMsg;
-
-          } catch (catErr) {
-            console.error("Error processing category budget details:", catErr);
-            if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = 'Could not load budget details for category.';
-          }
-        } else {
-           if (categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = ''; // Clear if "All Categories"
+        // Display budget info for the filtered category (below the list)
+        const categoryDetails = categoriesData[filterCategoryId];
+        let budgetedAmount = 0;
+        if (categoryDetails) {
+            budgetedAmount = (relevantCycleIdForFilterDisplay === "C1" ? categoryDetails.cycle1 : categoryDetails.cycle2) || 0;
         }
+        const totalSpentForCategoryInCycleForFilter = await getSpentForCategoryInCycle(filterCategoryId, relevantCycleIdForFilterDisplay);
+        const remainingBudgetForFilter = budgetedAmount - totalSpentForCategoryInCycleForFilter;
+        const categoryName = categoryDetails ? categoryDetails.name : "Selected Category";
 
-        expenseTxns.sort((a, b) => (new Date(b.timestamp) || 0) - (new Date(a.timestamp) || 0));
-        
-        if (expenseTxns.length === 0) {
-            if (filterCategoryId === "all") {
-                txnListEl.innerHTML = "<li>No expenses recorded yet.</li>";
-            } else {
-                txnListEl.innerHTML = "<li>No expenses found for this category in any cycle. Filter by cycle in the form to see cycle-specific spending for budget calculation.</li>";
-            }
-        } else {
-          expenseTxns.forEach(txn => {
+        let budgetDisplayMsg = `Filtered: ${categoryName} (${relevantCycleIdForFilterDisplay}) | Budget: $${budgetedAmount.toFixed(2)} | Spent: $${totalSpentForCategoryInCycleForFilter.toFixed(2)} | Remaining: $${remainingBudgetForFilter.toFixed(2)}`;
+        if (budgetedAmount === 0) {
+             budgetDisplayMsg = `Filtered: ${categoryName} (${relevantCycleIdForFilterDisplay}) | No budget set. | Spent: $${totalSpentForCategoryInCycleForFilter.toFixed(2)}`;
+        }
+        categoryBudgetInfoEl.textContent = budgetDisplayMsg;
+      }
+
+      expenseTxns.sort((a, b) => (new Date(b.timestamp) || 0) - (new Date(a.timestamp) || 0));
+      
+      txnListEl.innerHTML = ""; // Clear before adding new items
+      if (expenseTxns.length === 0) {
+          txnListEl.innerHTML = `<li>No expenses found for ${filterCategoryId === 'all' ? 'any category' : categoriesData[filterCategoryId]?.name || 'selected category'}.</li>`;
+      } else {
+        expenseTxns.forEach(txn => {
           const li = document.createElement("li");
-
           const infoDiv = document.createElement("div");
           infoDiv.className = "list-item-info";
 
-          const categoryName = categoriesData[txn.categoryId]?.name || "Unknown Category"; // Use categoriesData
+          const categoryName = categoriesData[txn.categoryId]?.name || "Unknown Category";
           const itemNameSpan = document.createElement("span");
           itemNameSpan.className = "item-name";
           itemNameSpan.textContent = `${categoryName} (${txn.type ? txn.type.replace('_', ' ') : 'N/A'})`;
@@ -350,26 +347,33 @@
 
           const actionsDiv = document.createElement("div");
           actionsDiv.className = "list-item-actions";
-
           const delBtn = document.createElement("button");
           delBtn.textContent = "Delete";
           delBtn.className = "btn btn-sm btn-delete";
           delBtn.onclick = async () => {
-            if (confirm(`Delete expense of $${(txn.amount || 0).toFixed(2)}? This action cannot be undone.`)) {
-              await deleteDoc(doc(db, "transactions", txn.id));
-              loadExpenses(); // Refresh list
+            if (confirm(`Delete expense of $${(txn.amount || 0).toFixed(2)}?`)) {
+              try {
+                await deleteDoc(doc(db, "transactions", txn.id));
+                loadExpenses(categoryFilterEl.value); // Refresh list based on current filter
+                updateExpenseFormBudgetInfo(); // Refresh form budget info as an expense was deleted
+              } catch (errDx) {
+                console.error("Error deleting transaction:", errDx);
+                alert("Error deleting transaction: " + errDx.message);
+              }
             }
           };
           actionsDiv.appendChild(delBtn);
-
           li.appendChild(actionsDiv);
           txnListEl.appendChild(li);
         });
-      } catch(err) {
-        console.error("Error loading expenses: ", err);
-        alert("Error loading expenses: " + err.message);
       }
+    } catch(err) {
+      console.error("Error loading expenses: ", err);
+      alert("Error loading expenses: " + err.message);
+      if(txnListEl) txnListEl.innerHTML = "<li class='text-danger'>Could not load expenses.</li>";
+      if(categoryBudgetInfoEl) categoryBudgetInfoEl.textContent = "Error loading expense data.";
     }
-  </script>
+  }
+</script>
 </body>
 </html>
